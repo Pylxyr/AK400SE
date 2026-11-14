@@ -1,0 +1,136 @@
+namespace DeepCoolLite;
+
+/// <summary>An open, already verified cooler. Show may throw when the connection is lost.</summary>
+public interface ICoolerLink : IDisposable
+{
+    void Show(bool showUsage, int tempC, int usagePct);
+}
+
+public sealed record ConnectOutcome(CoolerState State, string Product, ICoolerLink? Link);
+
+public interface ICoolerFinder
+{
+    /// <summary>Looks for the cooler, verifies it and opens it. Never opens or writes to anything unverified.</summary>
+    ConnectOutcome TryConnect();
+}
+
+public interface ISensorReader : IDisposable
+{
+    bool TempAvailable { get; }
+    bool LoadAvailable { get; }
+    (int TempC, int LoadPct) Read();
+}
+
+/// <summary>
+/// One tick per second drives everything: find the cooler, read the CPU, decide what to show, write one frame.
+/// The only writer to the cooler. Takes interfaces and a clock, so it runs (and is tested) without hardware.
+/// </summary>
+public sealed class Engine : IDisposable
+{
+    public const int ReconnectMs = 5000;      // while no cooler is connected, look for it this often (quietly)
+    public const int DropRetryMs = 2000;      // after a lost connection
+    public const int DriverCheckMs = 30000;
+
+    readonly ICoolerFinder _finder;
+    readonly Func<ISensorReader?> _openSensors;
+    readonly Func<bool> _driverInstalled;
+    readonly Func<long> _clock;
+
+    volatile Settings _settings;
+    Settings? _applied;
+    long _phaseStart;
+    ICoolerLink? _link;
+    ISensorReader? _sensors;
+    bool _sensorsTried;
+    long _nextConnectAt;
+    CoolerState _cooler = CoolerState.NotFound;
+    string _product = "";
+    bool _driverCached = true;
+    long _nextDriverCheck;
+    volatile EngineStatus _status = EngineStatus.Start;
+
+    public event Action<EngineStatus>? StatusChanged;
+    public EngineStatus Status => _status;
+
+    public Settings Settings { get => _settings; set => _settings = value.Normalized(); }
+
+    public Engine(ICoolerFinder finder, Func<ISensorReader?> openSensors, Func<bool> driverInstalled, Func<long> clockMs, Settings initial)
+    {
+        _finder = finder; _openSensors = openSensors; _driverInstalled = driverInstalled; _clock = clockMs;
+        _settings = initial.Normalized();
+    }
+
+    public void Tick()
+    {
+        long now = _clock();
+        var s = _settings;
+        if (!ReferenceEquals(s, _applied)) { _applied = s; _phaseStart = now; }
+
+        if (_link is null)
+        {
+            if (now < _nextConnectAt) return;
+            ConnectOutcome o;
+            try { o = _finder.TryConnect(); }
+            catch (Exception) { o = new ConnectOutcome(CoolerState.NotFound, "", null); }
+            _nextConnectAt = now + ReconnectMs;
+            _cooler = o.Link is null ? o.State : CoolerState.Connected;
+            _product = o.Product;
+            _link = o.Link;
+            if (_link is not null && !_sensorsTried) { _sensorsTried = true; _sensors = SafeOpenSensors(); }
+            Publish(now, tempOk: false, loadOk: false);
+            return;                          // the first frame follows on the next tick
+        }
+
+        bool tempOk = false, loadOk = false;
+        int temp = 0, load = 0;
+        if (_sensors is not null)
+        {
+            try { (temp, load) = _sensors.Read(); tempOk = _sensors.TempAvailable; loadOk = _sensors.LoadAvailable; }
+            catch (Exception) { tempOk = false; loadOk = false; }
+        }
+        Publish(now, tempOk, loadOk);
+
+        var pick = ModeScheduler.Pick(s.Mode, now - _phaseStart, s.SwitchSeconds, tempOk, loadOk);
+        if (pick == Shown.Nothing) return;   // never send a made-up 0
+
+        try { _link.Show(pick == Shown.Usage, temp, load); }
+        catch (Exception)
+        {
+            // unplugged, sleep/resume, stalled write: drop the handle and look again shortly
+            try { _link.Dispose(); } catch (Exception) { }
+            _link = null; _cooler = CoolerState.NotFound; _nextConnectAt = now + DropRetryMs;
+            Publish(now, false, false);
+        }
+    }
+
+    ISensorReader? SafeOpenSensors()
+    {
+        try { return _openSensors(); } catch (Exception) { return null; }
+    }
+
+    void Publish(long now, bool tempOk, bool loadOk)
+    {
+        TempState t;
+        if (tempOk) t = TempState.Ok;
+        else
+        {
+            if (now >= _nextDriverCheck)
+            {
+                try { _driverCached = _driverInstalled(); } catch (Exception) { _driverCached = true; }
+                _nextDriverCheck = now + DriverCheckMs;
+            }
+            t = !_driverCached ? TempState.DriverMissing : _sensorsTried ? TempState.NoSensor : TempState.Unknown;
+        }
+        var st = new EngineStatus(_cooler, _product, t, loadOk);
+        if (st == _status) return;
+        _status = st;
+        StatusChanged?.Invoke(st);
+    }
+
+    public void Dispose()
+    {
+        try { _link?.Dispose(); } catch (Exception) { }
+        try { _sensors?.Dispose(); } catch (Exception) { }
+        _link = null; _sensors = null;
+    }
+}

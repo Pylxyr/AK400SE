@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable><UseAppHost>false</UseAppHost>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <!-- Only the pure-logic sources: no UI, no HidSharp, no LibreHardwareMonitor, so this builds and runs on any OS. -->
+  <ItemGroup>
+    <Compile Include="../../src/Packet.cs" />
+    <Compile Include="../../src/HidDescriptor.cs" />
+    <Compile Include="../../src/DeviceCheck.cs" />
+    <Compile Include="../../src/WriteGuard.cs" />
+    <Compile Include="../../src/ModeScheduler.cs" />
+    <Compile Include="../../src/Settings.cs" />
+    <Compile Include="../../src/Status.cs" />
+    <Compile Include="../../src/Engine.cs" />
+    <Compile Include="../../src/TaskXml.cs" />
+  </ItemGroup>
+</Project>
