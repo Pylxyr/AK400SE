@@ -57,20 +57,25 @@ while (!cts.IsCancellationRequested)
 {
     try
     {
-        if (disp is null && Display.TryOpen(layout, out var info) is { } d)
-        {
-            disp = d;
-            disp.Write(Packet.Init());
-            Console.WriteLine($"connected: {info}");
-            warned = false;
-        }
-
         if (disp is null)
         {
-            if (!warned) Console.Error.WriteLine("cooler (3633:0001) not found or could not be opened, retrying...");
-            warned = true;
+            var log = new List<string>();
+            disp = Display.TryConnect(layout, log, out var info);
+            if (disp is not null)
+            {
+                Console.WriteLine($"connected: {info}");
+                warned = false;
+            }
+            else if (!warned)
+            {
+                // print the details once per outage, so a failing unit can be diagnosed from the console output
+                Console.Error.WriteLine("cooler (3633:0001) not connected, retrying every tick. Details:");
+                foreach (var line in log) Console.Error.WriteLine("  " + line);
+                warned = true;
+            }
         }
-        else
+
+        if (disp is not null)
         {
             var (t, u) = demo ? (88, 50) : cpu!.Read();
             bool showUsage = mode == Mode.Usage || (mode == Mode.Auto && Environment.TickCount64 / AutoSwitchMs % 2 == 1);

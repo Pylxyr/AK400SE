@@ -46,12 +46,14 @@ Use PowerShell (elevated). Do **not** use `schtasks /create` for this: tasks it 
 
 Stop: `Stop-ScheduledTask DeepCoolLite`. Remove: `Unregister-ScheduledTask DeepCoolLite -Confirm:$false`.
 
-## Layout fallback (`--layout`)
-The SE and the regular AK400 DIGITAL use the same bytes, but the SE sends them without a HID report ID. `--layout auto`
-(default) picks by the USB product name: names starting with `AK` are the regular model (report ID `0x10`), anything else
-(`A400-DIGITAL`) is treated as SE. If `--demo` shows only the logo, force the other one:
-
-    .\deepcool-lite.exe --demo --layout std      # or --layout se
+## How the report ID is chosen (`--layout`)
+The SE and the regular AK400 DIGITAL use the same bytes, but a unit may or may not use a HID report ID, and Windows
+rejects a write whose first byte is not an ID the device declares ("The parameter is incorrect"). So `--layout auto`
+(default) reads the device's HID report descriptor: report ID `0x10` if it declares one, otherwise the unnumbered
+layout (ID 0). If the descriptor cannot be read it falls back to the USB product name (`AK...` = `0x10`, anything else = 0) and
+tries the other one if the write is refused. The program prints which ID worked (`connected: ... report ID 0x..`).
+If nothing works it prints what it found, once per outage: paste those lines into an issue.
+To force one: `--layout std` (ID `0x10`) or `--layout se` (ID 0).
 
 ## Verify resource use (PowerShell, while it runs)
     $p = Get-Process deepcool-lite
@@ -73,7 +75,8 @@ The SE and the regular AK400 DIGITAL use the same bytes, but the SE sends them w
 ## Troubleshooting
 - "No readable CPU temperature sensor": not elevated, or PawnIO missing/too old.
 - "already running": another copy (probably the `DeepCoolLite` task) holds the cooler. Stop it first.
-- Display shows only the logo with `--demo`: try `--layout std`. If both fail, see the #119 note above.
+- `IOException ... The parameter is incorrect` or "not connected, retrying": the lines printed under it show every HID interface found and each report ID tried. Paste them into an issue.
+- Display shows only the logo with `--demo`: try `--layout std`, then `--layout se`. If both fail, see the #119 note above.
 - "cooler not found or could not be opened": check `3633:0001` in Device Manager > Human Interface Devices, and that the official app is closed.
 
 ## Tests (any OS with the .NET 10 SDK and Python 3; run from the repo root)
