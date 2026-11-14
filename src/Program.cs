@@ -45,7 +45,7 @@ if (!demo)
     cpu = Cpu.Open();
     if (cpu is null)
     {
-        Console.Error.WriteLine("No readable CPU temperature sensor. Run as Administrator and install the PawnIO driver.");
+        Console.Error.WriteLine("No readable CPU temperature (a sensor that reads 0 counts as unreadable). Run as Administrator and install the PawnIO driver: winget install namazso.PawnIO");
         return 2;
     }
     Console.WriteLine($"temperature sensor: {cpu.TempName}");

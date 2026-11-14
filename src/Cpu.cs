@@ -28,7 +28,7 @@ sealed class Cpu : IDisposable
         if (cpu is null) { pc.Close(); return null; }
         cpu.Update();
 
-        var temps = cpu.Sensors.Where(s => s.SensorType == SensorType.Temperature && s.Value.HasValue).ToList();
+        var temps = cpu.Sensors.Where(s => s.SensorType == SensorType.Temperature && s.Value is > 0f).ToList();
         ISensor? temp = null;
         // Intel: "CPU Package"; AMD: "Core (Tctl/Tdie)"; then fallbacks
         foreach (var key in new[] { "Package", "Tctl", "Core Max", "Average" })
@@ -43,7 +43,7 @@ sealed class Cpu : IDisposable
     public (int TempC, int LoadPct) Read()
     {
         _cpu.Update();
-        if (_temp.Value is float t && !float.IsNaN(t)) _lastTemp = t;
+        if (_temp.Value is float t && t > 0f) _lastTemp = t;      // 0 / NaN = driver gave nothing: keep the last good value
         if (_load?.Value is float l && !float.IsNaN(l)) _lastLoad = l;
         return ((int)Math.Round(_lastTemp), (int)Math.Round(_lastLoad));
     }
