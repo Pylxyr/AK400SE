@@ -1,0 +1,171 @@
+name: Cut release
+
+# One-click release from the GitHub website:
+#   Actions > Cut release > Run workflow > Branch: main > pick patch / minor / major
+#   (or type an exact version) > Run workflow.
+#
+# Everything is tested and built first. Only when all of that passes does it commit the version bump, tag it
+# on main and publish the GitHub release with deepcool-lite.exe and SHA256SUMS.txt. A failure before the push
+# step leaves no commit, no tag and no release behind.
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Which part of the version to increase (major.minor.patch). The very first release uses the version already in deepcool-lite.csproj as it is. On a pre-release, patch releases it: 0.2.0-rc1 becomes 0.2.0."
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+      version:
+        description: "Optional exact version instead, e.g. 0.2.0 or 0.2.0-rc1 (a '-' makes it a pre-release). Overrides the choice above."
+        type: string
+        required: false
+        default: ""
+
+concurrency:
+  group: cut-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Releases are cut from main only. Say so, instead of quietly doing nothing.
+  wrong-branch:
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "::error::Cut release only runs on main, but it was started on ${GITHUB_REF_NAME}. Choose 'main' in the Branch menu of the Run workflow box."
+          exit 1
+
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write # push the version commit and the tag, create the release
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      # Windows runners default to core.autocrlf=true. Check out LF files, so the version bump is a one-line diff.
+      - name: Check out with LF line endings
+        run: git config --global core.autocrlf false
+
+      # The commit this run was started on (not whatever main is by now). If main has moved since, the push
+      # below is rejected as a non-fast-forward and nothing is released.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Decide the version
+        id: ver
+        env:
+          BUMP: ${{ inputs.bump }}
+          EXACT: ${{ inputs.version }}
+        run: |
+          $exact = "$env:EXACT".Trim()
+          if ($exact.StartsWith('v')) { $exact = $exact.Substring(1) }
+          $tags = @(git tag --list 'v*.*.*')
+          if ($exact) { $ver = $exact }
+          elseif ($tags.Count -eq 0) {
+            # Nothing has been released yet, so the version already in the csproj is the first release.
+            $ver = ./scripts/version.ps1 -Get
+            Write-Host "::notice::No release tag exists yet, so the current version ($ver) is released as it is."
+          }
+          else { $ver = ./scripts/version.ps1 -Next $env:BUMP }
+          $ver = ./scripts/version.ps1 -Set $ver    # validates the format and writes the csproj in this checkout only
+          if (git tag --list "v$ver") { throw "Tag v$ver already exists. Pick a different version." }
+          $pre = if ($ver.Contains('-')) { 'true' } else { 'false' }
+          "version=$ver" >> $env:GITHUB_OUTPUT
+          "tag=v$ver" >> $env:GITHUB_OUTPUT
+          "prerelease=$pre" >> $env:GITHUB_OUTPUT
+          Write-Host "Releasing $ver (pre-release: $pre)"
+          $global:LASTEXITCODE = 0
+
+      - name: Version helper tests
+        run: ./tests/version-tests.ps1
+
+      - name: Packet identity (C# frames == Python reference)
+        run: ./tests/run-packet-tests.ps1
+
+      - name: Publish (win-x64, framework-dependent, single file)
+        run: dotnet publish deepcool-lite.csproj -c Release -o artifacts/publish
+
+      - name: Check the published exe
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: ./scripts/check-exe.ps1 -Path artifacts/publish/deepcool-lite.exe -ExpectedVersion $env:VERSION
+
+      - name: Stage release files (exe, SHA256SUMS.txt, notes)
+        run: |
+          New-Item -ItemType Directory -Force release | Out-Null
+          Copy-Item artifacts/publish/deepcool-lite.exe release/deepcool-lite.exe
+          $hash = (Get-FileHash -Algorithm SHA256 release/deepcool-lite.exe).Hash.ToLowerInvariant()
+          $utf8 = New-Object System.Text.UTF8Encoding($false)
+          # same format as sha256sum, so "sha256sum -c SHA256SUMS.txt" works too
+          [IO.File]::WriteAllText("$PWD/release/SHA256SUMS.txt", "$hash  deepcool-lite.exe`n", $utf8)
+          $sumLine = '**SHA-256** of `deepcool-lite.exe`: `{0}`' -f $hash
+          $notes = (Get-Content .github/release-notes-header.md -Raw) + "`n" + $sumLine + "`n"
+          [IO.File]::WriteAllText("$PWD/release/notes.md", $notes, $utf8)
+          Get-Content release/SHA256SUMS.txt
+
+      # From here on something is published. One atomic push: if main moved, nothing is pushed.
+      - name: Commit the version, tag it, push
+        id: push
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add deepcool-lite.csproj
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m "Release $env:VERSION"
+            if ($LASTEXITCODE -ne 0) { throw "git commit failed" }
+          }
+          git tag $env:TAG
+          if ($LASTEXITCODE -ne 0) { throw "git tag failed" }
+          git push --atomic origin HEAD:refs/heads/main "refs/tags/$env:TAG"
+          if ($LASTEXITCODE -ne 0) { throw "git push was rejected: did main move during the run, or does a branch rule block github-actions[bot]?" }
+
+      - name: Publish the GitHub release
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          TAG: ${{ steps.ver.outputs.tag }}
+          PRERELEASE: ${{ steps.ver.outputs.prerelease }}
+        run: |
+          $ghArgs = @($env:TAG, 'release/deepcool-lite.exe', 'release/SHA256SUMS.txt', '--verify-tag', '--title', "deepcool-lite $env:VERSION", '--notes-file', 'release/notes.md')
+          if ($env:PRERELEASE -eq 'true') { $ghArgs += '--prerelease' }
+          gh release create @ghArgs
+          if ($LASTEXITCODE -ne 0) { throw "gh release create failed" }
+          $url = gh release view $env:TAG --json url --jq .url
+          Write-Host "Released: $url"
+          "### Released $env:TAG`n$url" >> $env:GITHUB_STEP_SUMMARY
+          $global:LASTEXITCODE = 0
+
+      - name: What to do when only the release step failed
+        if: ${{ failure() && steps.push.outcome == 'success' }}
+        env:
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          @(
+            "### $env:TAG was pushed, but the release was NOT published",
+            "",
+            "The tag and version commit are already on main, so Re-run does not work (the tag exists). Either:",
+            "",
+            "- publish by hand from a PowerShell in a clone:  dotnet publish -c Release -o artifacts/publish ; gh release create $env:TAG artifacts/publish/deepcool-lite.exe --title $env:TAG",
+            "- or delete the tag so the version can be used again:  git push --delete origin $env:TAG   then run Cut release again (the version commit stays; the run then releases the current version as it is)."
+          ) -join "`n" >> $env:GITHUB_STEP_SUMMARY
+          $global:LASTEXITCODE = 0

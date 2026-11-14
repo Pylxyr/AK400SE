@@ -1,0 +1,25 @@
+# build output
+bin/
+obj/
+/artifacts/
+/release/
+TestResults/
+*.binlog
+
+# packet-test dumps (tests/run-packet-tests.ps1)
+/tests/out/
+__pycache__/
+*.pyc
+
+# local verification report (pasted by hand, never committed)
+verification-report.txt
+
+# IDEs / OS
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.log
+Thumbs.db
+.DS_Store
