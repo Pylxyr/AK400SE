@@ -53,6 +53,8 @@ SolidCompression=yes
 WizardStyle=modern
 ShowLanguageDialog=no
 CloseApplications=no
+; Makes Setup tell Explorer to refresh its icons at the end, so an upgraded icon is not hidden by the shell's icon cache.
+ChangesAssociations=yes
 VersionInfoVersion={#NumericVersion}.0
 VersionInfoProductVersion={#NumericVersion}.0
 VersionInfoProductTextVersion={#AppVersion}
