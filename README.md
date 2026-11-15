@@ -1,8 +1,8 @@
 # DeepCool Lite
 
 DeepCool Lite is a small program for Windows that makes the display on your **DeepCool AK400 DIGITAL SE** CPU cooler show your
-processor's **temperature**, its **usage**, or **both, taking turns**. It lives in the tray (next to the clock), uses very little
-memory, never connects to the internet, and does not need the official DeepCool software.
+processor's **temperature**, its **usage**, or **both, taking turns**. It lives in the tray (next to the clock), never connects to the
+internet, and does not need the official DeepCool software.
 
 > It only works with the **AK400 DIGITAL SE**. The regular AK400 DIGITAL, the AK400 DIGITAL PRO and other coolers are not supported:
 > the program checks which cooler it is talking to and does nothing if it is not the SE.
@@ -48,7 +48,7 @@ DeepCool Lite has no network access, no tracking and no automatic updates. It sa
 `%LOCALAPPDATA%\DeepCoolLite`.
 
 ## No warranty
-DeepCool Lite is free software and comes **with no warranty**. You use it at your own risk. It is not made or endorsed by DeepCool.
+DeepCool Lite is free software and comes **with no warranty**. You use it at your own risk.
 The details are in the [MIT License](LICENSE). PawnIO is a separate product by its own author, with its own license.
 
 ## For developers
