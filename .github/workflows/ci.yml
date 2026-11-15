@@ -1,7 +1,7 @@
 name: CI
 
 # Every push to main and every pull request: the same checks a release runs, minus the release itself.
-# The published exe is uploaded as a workflow artifact so a build can be tried without cutting a release.
+# The installer is uploaded as a workflow artifact so a build can be tried without cutting a release.
 
 on:
   push:
@@ -40,17 +40,21 @@ jobs:
       - name: Packet identity (C# frames == Python reference)
         run: ./tests/run-packet-tests.ps1
 
-      - name: Publish (win-x64, framework-dependent, single file)
-        run: dotnet publish deepcool-lite.csproj -c Release -o artifacts/publish
+      # Device verification, settings, mode scheduling, the write rules and the start-up task XML (no UI, no hardware).
+      - name: Logic tests
+        run: dotnet run --project tests/LogicTests -c Release
 
-      - name: Check the published exe
+      - name: Build the installer (self-contained app + pinned PawnIO + Inno Setup)
+        run: ./scripts/build-installer.ps1 -Version (./scripts/version.ps1 -Get)
+
+      - name: Check the app and the installer
         run: |
           $v = ./scripts/version.ps1 -Get
-          ./scripts/check-exe.ps1 -Path artifacts/publish/deepcool-lite.exe -ExpectedVersion $v
+          ./scripts/check-exe.ps1 -Path artifacts/publish/deepcool-lite.exe -ExpectedVersion $v -InstallerPath "artifacts/installer/deepcool-lite-setup-$v.exe"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: deepcool-lite-win-x64
-          path: artifacts/publish/deepcool-lite.exe
+          name: deepcool-lite-installer
+          path: artifacts/installer/deepcool-lite-setup-*.exe
           if-no-files-found: error
           retention-days: 14
