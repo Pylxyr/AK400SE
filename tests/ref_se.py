@@ -7,7 +7,7 @@ byte layout that Nortank12/deepcool-digital-linux now ships in src/devices/ak_se
 every byte shifted down by one because the report ID is not sent).
 
 This file is a derivative of that GPL-3.0 code and stays under GPL-3.0; it is test-only and is not
-part of the deepcool-lite.exe that gets released. The rest of the repository is MIT (see LICENSE).
+part of the AK400SE.exe that gets released. The rest of the repository is MIT (see LICENSE).
 
 Usage: python tests/ref_se.py <output file>
 """

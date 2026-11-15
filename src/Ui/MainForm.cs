@@ -1,7 +1,7 @@
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace DeepCoolLite.Ui;
+namespace AK400SE.Ui;
 
 /// <summary>A label that wraps its text to the width it is given and reports the height that needs (plain Labels do not).</summary>
 sealed class WrapLabel : Label
@@ -58,7 +58,7 @@ sealed class MainForm : Form
         _onAutostart = onAutostart;
 
         SuspendLayout();
-        Text = "DeepCool Lite";
+        Text = "AK400SE";
         Icon = AppIcon.LoadWindow();
         Font = SystemFonts.MessageBoxFont ?? Font;
         _bold = new Font(Font, FontStyle.Bold);
@@ -210,7 +210,7 @@ sealed class MainForm : Form
         _loading = true;
         _start.Checked = !_start.Checked;
         _loading = false;
-        MessageBox.Show(this, error, "DeepCool Lite", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        MessageBox.Show(this, error, "AK400SE", MessageBoxButtons.OK, MessageBoxIcon.Warning);
     }
 
     protected override void Dispose(bool disposing)

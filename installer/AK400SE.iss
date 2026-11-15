@@ -1,11 +1,11 @@
-; Inno Setup 6 script for DeepCool Lite.
+; Inno Setup 6 script for AK400SE.
 ; Build (from the repo root, after "dotnet publish" into artifacts\publish and scripts\get-pawnio.ps1):
 ;   set DCL_VERSION=1.2.3
-;   ISCC.exe installer\deepcool-lite.iss
+;   ISCC.exe installer\AK400SE.iss
 ; The version comes from the DCL_VERSION environment variable (the csproj <Version>, see the CI workflows).
 
-#define AppName "DeepCool Lite"
-#define AppExe "deepcool-lite.exe"
+#define AppName "AK400SE"
+#define AppExe "AK400SE.exe"
 #define AppPublisher "Pylxyr"
 #define AppUrl "https://github.com/Pylxyr/AK400SE"
 
@@ -37,6 +37,9 @@ DefaultDirName={autopf}\{#AppName}
 ; Fixed location: the start-up task runs the app with administrator rights, so it must live in Program Files, where
 ; normal users cannot replace it.
 DisableDirPage=yes
+; Versions up to 0.1.x were installed as "DeepCool Lite" (same AppId, so Windows sees an upgrade). Always use the new folder;
+; [InstallDelete] below removes the old one.
+UsePreviousAppDir=no
 DisableProgramGroupPage=yes
 PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
@@ -47,7 +50,7 @@ SetupIconFile=..\src\app.ico
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
 OutputDir=..\artifacts\installer
-OutputBaseFilename=deepcool-lite-setup-{#AppVersion}
+OutputBaseFilename=AK400SE-setup-{#AppVersion}
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
@@ -74,6 +77,11 @@ Name: "startup"; Description: "Start {#AppName} when I sign in to Windows"; Grou
 Source: "..\artifacts\publish\*"; DestDir: "{app}"; Excludes: "*.pdb"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Only unpacked when the user agrees on the PawnIO page (see [Code]).
 Source: "..\artifacts\pawnio\PawnIO_setup.exe"; DestDir: "{tmp}"; Flags: dontcopy
+
+[InstallDelete]
+; One-time clean-up of the old product name (installs of 0.1.x): its folder (with the old exe and uninstaller) and Start menu shortcut.
+Type: filesandordirs; Name: "{autopf}\DeepCool Lite"
+Type: files; Name: "{autoprograms}\DeepCool Lite.lnk"
 
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"
@@ -119,17 +127,28 @@ begin
   Result := (PawnPage <> nil) and (PageID = PawnPage.ID) and PawnIoInstalled();
 end;
 
+procedure RemoveOldName();
+var
+  Code: Integer;
+begin
+  // 0.1.x ran as the task "DeepCoolLite" from deepcool-lite.exe. End and delete the task first so it cannot restart the old exe.
+  Exec(ExpandConstant('{sys}\schtasks.exe'), '/End /TN DeepCoolLite', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Exec(ExpandConstant('{sys}\schtasks.exe'), '/Delete /TN DeepCoolLite /F', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM deepcool-lite.exe', '', SW_HIDE, ewWaitUntilTerminated, Code);
+end;
+
 procedure StopApp();
 var
   Code: Integer;
 begin
   // end the task first so Task Scheduler does not restart the app, then make sure no copy is left running
-  Exec(ExpandConstant('{sys}\schtasks.exe'), '/End /TN DeepCoolLite', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Exec(ExpandConstant('{sys}\schtasks.exe'), '/End /TN AK400SE', '', SW_HIDE, ewWaitUntilTerminated, Code);
   Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM {#AppExe}', '', SW_HIDE, ewWaitUntilTerminated, Code);
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
+  RemoveOldName();
   StopApp();
   Result := '';
 end;

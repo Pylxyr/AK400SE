@@ -1,10 +1,10 @@
 using System.Diagnostics;
 using System.Text;
 
-namespace DeepCoolLite.Ui;
+namespace AK400SE.Ui;
 
 /// <summary>
-/// The scheduled task "DeepCoolLite" (see <see cref="TaskXml"/>). The installer creates it once while elevated; after that the
+/// The scheduled task "AK400SE" (see <see cref="TaskXml"/>). The installer creates it once while elevated; after that the
 /// app can start with administrator rights without a UAC prompt. All calls go to schtasks.exe with fixed arguments.
 /// </summary>
 static class StartTask
@@ -50,7 +50,7 @@ static class StartTask
     /// <summary>Creates or replaces the task, with or without the logon trigger. Null on success, else a message for the user.</summary>
     public static string? Register(bool logonTrigger)
     {
-        if (!CanManage()) return "This setting is only available after installing DeepCool Lite with the setup program.";
+        if (!CanManage()) return "This setting is only available after installing AK400SE with the setup program.";
         if (!Elevation.IsElevated()) return "Administrator rights are needed to change this setting.";
 
         // The XML file goes next to the exe (inside Program Files), where normal users cannot swap it while schtasks reads it.

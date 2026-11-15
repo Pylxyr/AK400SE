@@ -1,4 +1,4 @@
-using DeepCoolLite;
+using AK400SE;
 using System.Xml.Linq;
 
 // Tests for the logic that decides what may be written to the cooler, what is shown, and how settings and the
@@ -106,7 +106,7 @@ finally { try { Directory.Delete(dir, true); } catch (Exception) { } }
 
 // ---------- TaskXml ----------
 const string Sid = "S-1-5-21-1111111111-2222222222-3333333333-1001";
-const string Exe = @"C:\Program Files\DeepCool Lite\deepcool-lite.exe";
+const string Exe = @"C:\Program Files\AK400SE\AK400SE.exe";
 XNamespace ns = "http://schemas.microsoft.com/windows/2004/02/mit/task";
 var on = XDocument.Parse(TaskXml.Build(Sid, Exe, true));
 var off = XDocument.Parse(TaskXml.Build(Sid, Exe, false));
@@ -128,11 +128,11 @@ bool Throws(Action a) { try { a(); return false; } catch (ArgumentException) { r
 Check(Throws(() => TaskXml.Build("not-a-sid", Exe, true)), "invalid SID is rejected");
 Check(Throws(() => TaskXml.Build(Sid + "</UserId><x/>", Exe, true)), "SID cannot carry XML");
 Check(Throws(() => TaskXml.Build(Sid, "relative\\app.exe", true)) && Throws(() => TaskXml.Build(Sid, "C:\\a\"b\\app.exe", true)), "exe path must be absolute and quote-free");
-Check(XDocument.Parse(TaskXml.Build(Sid, @"C:\Program Files\A & B <x>\deepcool-lite.exe", true)).Descendants(ns + "Command").Single().Value == "\"C:\\Program Files\\A & B <x>\\deepcool-lite.exe\"", "XML special characters in the path are escaped");
+Check(XDocument.Parse(TaskXml.Build(Sid, @"C:\Program Files\A & B <x>\AK400SE.exe", true)).Descendants(ns + "Command").Single().Value == "\"C:\\Program Files\\A & B <x>\\AK400SE.exe\"", "XML special characters in the path are escaped");
 const string Pf = @"C:\Program Files";
 Check(TaskXml.IsSafeInstallLocation(Exe, Pf), "Program Files location is safe");
 Check(TaskXml.IsSafeInstallLocation(@"c:\program files\x\a.exe", @"C:\Program Files\"), "comparison ignores case and a trailing backslash");
-Check(!TaskXml.IsSafeInstallLocation(@"C:\Users\me\Downloads\deepcool-lite.exe", Pf), "user folders are not safe");
+Check(!TaskXml.IsSafeInstallLocation(@"C:\Users\me\Downloads\AK400SE.exe", Pf), "user folders are not safe");
 Check(!TaskXml.IsSafeInstallLocation(@"C:\Program Files\..\Users\me\a.exe", Pf), "'..' is rejected");
 Check(!TaskXml.IsSafeInstallLocation(@"C:\Program Files Evil\a.exe", Pf), "a sibling folder with the same prefix is not safe");
 Check(!TaskXml.IsSafeInstallLocation(@"\\server\share\a.exe", Pf) && !TaskXml.IsSafeInstallLocation(null, Pf) && !TaskXml.IsSafeInstallLocation(Exe, null) && !TaskXml.IsSafeInstallLocation(Exe, "C:"), "network paths and missing values are not safe");

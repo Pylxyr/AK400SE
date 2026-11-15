@@ -50,11 +50,11 @@ jobs:
       - name: Check the app and the installer
         run: |
           $v = ./scripts/version.ps1 -Get
-          ./scripts/check-exe.ps1 -Path artifacts/publish/deepcool-lite.exe -ExpectedVersion $v -InstallerPath "artifacts/installer/deepcool-lite-setup-$v.exe"
+          ./scripts/check-exe.ps1 -Path artifacts/publish/AK400SE.exe -ExpectedVersion $v -InstallerPath "artifacts/installer/AK400SE-setup-$v.exe"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: deepcool-lite-installer
-          path: artifacts/installer/deepcool-lite-setup-*.exe
+          name: AK400SE-installer
+          path: artifacts/installer/AK400SE-setup-*.exe
           if-no-files-found: error
           retention-days: 14

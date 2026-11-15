@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
   Builds the installer: publishes the app (self-contained win-x64), fetches the pinned PawnIO installer, and compiles
-  installer/deepcool-lite.iss with Inno Setup. Output: artifacts/installer/deepcool-lite-setup-<version>.exe
+  installer/AK400SE.iss with Inno Setup. Output: artifacts/installer/AK400SE-setup-<version>.exe
   Needs Windows, the .NET 10 SDK and Inno Setup 6 (preinstalled on GitHub's windows-latest; installed with Chocolatey if missing).
 #>
 [CmdletBinding()]
@@ -19,7 +19,7 @@ function Assert-Native([string]$what) { if ($LASTEXITCODE -ne 0) { throw "$what 
 
 if (Test-Path artifacts/publish) { Remove-Item -Recurse -Force artifacts/publish }
 Write-Host '== publish (self-contained, win-x64, ReadyToRun)'
-dotnet publish deepcool-lite.csproj -c Release -o artifacts/publish
+dotnet publish AK400SE.csproj -c Release -o artifacts/publish
 Assert-Native 'dotnet publish'
 
 Write-Host '== PawnIO installer (pinned, verified)'
@@ -41,9 +41,9 @@ if (-not $iscc) {
 Write-Host "Using $iscc"
 
 $env:DCL_VERSION = $Version
-& $iscc (Join-Path $root 'installer/deepcool-lite.iss')
+& $iscc (Join-Path $root 'installer/AK400SE.iss')
 Assert-Native 'ISCC'
 
-$out = Join-Path $root "artifacts/installer/deepcool-lite-setup-$Version.exe"
+$out = Join-Path $root "artifacts/installer/AK400SE-setup-$Version.exe"
 if (-not (Test-Path -LiteralPath $out)) { throw "Expected installer not found: $out" }
 Write-Host "Built $out"

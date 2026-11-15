@@ -1,7 +1,7 @@
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace DeepCoolLite.Ui;
+namespace AK400SE.Ui;
 
 static class AppIcon
 {

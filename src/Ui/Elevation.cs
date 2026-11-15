@@ -1,6 +1,6 @@
 using System.Security.Principal;
 
-namespace DeepCoolLite.Ui;
+namespace AK400SE.Ui;
 
 static class Elevation
 {

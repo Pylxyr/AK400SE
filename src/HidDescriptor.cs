@@ -1,4 +1,4 @@
-namespace DeepCoolLite;
+namespace AK400SE;
 
 /// <summary>Minimal HID report-descriptor reader: which report IDs carry an Output (host to device) report.</summary>
 public static class HidDescriptor

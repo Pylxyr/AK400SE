@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
-namespace DeepCoolLite;
+namespace AK400SE;
 
 /// <summary>
 /// The scheduled task that starts the app with administrator rights without a UAC prompt. Created once by the installer
@@ -11,7 +11,7 @@ namespace DeepCoolLite;
 /// </summary>
 public static class TaskXml
 {
-    public const string TaskName = "DeepCoolLite";
+    public const string TaskName = "AK400SE";
     public const string FromTaskArgument = "--from-task";
     static readonly Regex SidPattern = new(@"^S-1-\d{1,3}(-\d{1,10}){1,15}$", RegexOptions.CultureInvariant);
 
@@ -42,7 +42,7 @@ public static class TaskXml
         var sb = new StringBuilder();
         sb.Append("<?xml version=\"1.0\" encoding=\"UTF-16\"?>\n");
         sb.Append("<Task version=\"1.4\" xmlns=\"http://schemas.microsoft.com/windows/2004/02/mit/task\">\n");
-        sb.Append("  <RegistrationInfo><Description>Starts DeepCool Lite with administrator rights, without a prompt.</Description></RegistrationInfo>\n");
+        sb.Append("  <RegistrationInfo><Description>Starts AK400SE with administrator rights, without a prompt.</Description></RegistrationInfo>\n");
         if (logonTrigger)
             sb.Append("  <Triggers>\n    <LogonTrigger>\n      <Enabled>true</Enabled>\n      <UserId>").Append(sid).Append("</UserId>\n    </LogonTrigger>\n  </Triggers>\n");
         sb.Append("  <Principals>\n    <Principal id=\"Author\">\n      <UserId>").Append(sid).Append("</UserId>\n");

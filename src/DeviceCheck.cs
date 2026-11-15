@@ -1,4 +1,4 @@
-namespace DeepCoolLite;
+namespace AK400SE;
 
 /// <summary>What Windows reports about one HID interface, as plain data so the check can be tested without hardware.</summary>
 public sealed record HidCandidate(

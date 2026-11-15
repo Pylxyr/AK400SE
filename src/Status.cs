@@ -1,4 +1,4 @@
-namespace DeepCoolLite;
+namespace AK400SE;
 
 public enum CoolerState { NotFound, Unsupported, CannotOpen, Connected }
 public enum TempState { Unknown, Ok, DriverMissing, NoSensor }
@@ -31,7 +31,7 @@ public static class StatusText
     /// <summary>Tray tooltip; Windows allows at most 127 characters.</summary>
     public static string Tray(EngineStatus s)
     {
-        string t = "DeepCool Lite: " + Cooler(s);
+        string t = "AK400SE: " + Cooler(s);
         if (s.Cooler == CoolerState.Connected && s.Temp is TempState.DriverMissing or TempState.NoSensor)
             t += " (no CPU temperature)";
         return t.Length > 120 ? t.Substring(0, 117) + "..." : t;

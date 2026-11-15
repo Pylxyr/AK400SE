@@ -12,7 +12,7 @@ if (-not $here) { $here = Split-Path -Parent $MyInvocation.MyCommand.Path }
 $root = Split-Path -Parent $here
 $ver = Join-Path (Join-Path $root 'scripts') 'version.ps1'
 $tmp = Join-Path ([IO.Path]::GetTempPath()) ('dcl-version-' + [guid]::NewGuid().ToString('N') + '.csproj')
-Copy-Item -LiteralPath (Join-Path $root 'deepcool-lite.csproj') -Destination $tmp
+Copy-Item -LiteralPath (Join-Path $root 'AK400SE.csproj') -Destination $tmp
 
 $script:n = 0
 $script:bad = 0
@@ -50,7 +50,7 @@ try {
 
     # only the one element changes: the rest of the file is byte-identical
     & $ver -Set $start -Csproj $tmp | Out-Null
-    $same = ([IO.File]::ReadAllText($tmp) -ceq [IO.File]::ReadAllText((Join-Path $root 'deepcool-lite.csproj')))
+    $same = ([IO.File]::ReadAllText($tmp) -ceq [IO.File]::ReadAllText((Join-Path $root 'AK400SE.csproj')))
     Expect 'round trip restores the file exactly' $same 'True'
 }
 finally {

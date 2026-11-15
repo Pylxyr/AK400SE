@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Read, bump or set the one version number of deepcool-lite: the <Version> element in deepcool-lite.csproj.
+  Read, bump or set the one version number of AK400SE: the <Version> element in AK400SE.csproj.
   Works in Windows PowerShell 5.1 and PowerShell 7.
 
 .EXAMPLE
@@ -22,7 +22,7 @@ $ErrorActionPreference = 'Stop'
 # $PSScriptRoot is EMPTY in param() defaults under Windows PowerShell 5.1 with -File, so work it out in the body.
 $here = $PSScriptRoot
 if (-not $here) { $here = Split-Path -Parent $MyInvocation.MyCommand.Path }
-if (-not $Csproj) { $Csproj = Join-Path (Split-Path -Parent $here) 'deepcool-lite.csproj' }
+if (-not $Csproj) { $Csproj = Join-Path (Split-Path -Parent $here) 'AK400SE.csproj' }
 $Csproj = (Resolve-Path -LiteralPath $Csproj).Path
 $semver = '^(\d+)\.(\d+)\.(\d+)(-[0-9A-Za-z][0-9A-Za-z.-]*)?$'
 
@@ -65,7 +65,7 @@ switch ($PSCmdlet.ParameterSetName) {
     'Check' {
         $want = Normalize $Check
         $have = Read-Version
-        if ($have -ne $want) { throw "deepcool-lite.csproj says $have, but $want was expected" }
+        if ($have -ne $want) { throw "AK400SE.csproj says $have, but $want was expected" }
         Write-Output $have
     }
     default { Write-Output (Read-Version) }

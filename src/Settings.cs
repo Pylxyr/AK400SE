@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace DeepCoolLite;
+namespace AK400SE;
 
 /// <summary>The user's choices. Everything is clamped to known values: a hand-edited file cannot produce anything else.</summary>
 public sealed record Settings(Mode Mode, int SwitchSeconds, bool Fahrenheit = false)
@@ -32,7 +32,7 @@ public static class SettingsFile
     public const int MaxBytes = 4096;
 
     public static string DefaultPath() =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DeepCoolLite", "settings.json");
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AK400SE", "settings.json");
 
     static string ModeName(Mode m) => m switch { Mode.Temp => "temp", Mode.Usage => "usage", _ => "auto" };
 

@@ -1,6 +1,6 @@
 using LibreHardwareMonitor.Hardware;
 
-namespace DeepCoolLite;
+namespace AK400SE;
 
 /// <summary>
 /// CPU temperature and total load through LibreHardwareMonitorLib. Only the CPU group is enabled: no motherboard / Super I/O,

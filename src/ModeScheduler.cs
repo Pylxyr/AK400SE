@@ -1,4 +1,4 @@
-namespace DeepCoolLite;
+namespace AK400SE;
 
 public enum Shown { Nothing, Temperature, Usage }
 

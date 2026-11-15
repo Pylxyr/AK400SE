@@ -1,9 +1,9 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows.Forms;
-using DeepCoolLite.Ui;
+using AK400SE.Ui;
 
-namespace DeepCoolLite;
+namespace AK400SE;
 
 static class Program
 {
@@ -24,8 +24,8 @@ static class Program
             if (fromTask)
             {
                 // The task started us but Windows did not give administrator rights (not an administrator account?). Do not relaunch: no loop.
-                MessageBox.Show("DeepCool Lite needs administrator rights to read the CPU temperature, and Windows did not grant them to this account.",
-                    "DeepCool Lite", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("AK400SE needs administrator rights to read the CPU temperature, and Windows did not grant them to this account.",
+                    "AK400SE", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return 0;
             }
             return LaunchElevated();
@@ -35,7 +35,7 @@ static class Program
         Mutex? single;
         try
         {
-            single = new Mutex(true, @"Global\DeepCoolLite.Single", out bool created);
+            single = new Mutex(true, @"Global\AK400SE.Single", out bool created);
             if (!created) { single.Dispose(); return 0; }
         }
         catch (UnauthorizedAccessException) { return 0; }

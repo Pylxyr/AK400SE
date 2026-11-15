@@ -1,6 +1,6 @@
 using HidSharp;
 
-namespace DeepCoolLite;
+namespace AK400SE;
 
 /// <summary>
 /// Opens the cooler and writes frames to it. The device is chosen by <see cref="DeviceCheck"/> (VID, PID and product string

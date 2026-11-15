@@ -1,4 +1,4 @@
-using DeepCoolLite;
+using AK400SE;
 using System.Text;
 
 // Dumps every frame for temp 0..255 x usage 0..100 x {temp,usage} mode, as hex, for diffing against ref_se.py.

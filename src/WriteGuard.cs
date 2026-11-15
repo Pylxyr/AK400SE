@@ -1,4 +1,4 @@
-namespace DeepCoolLite;
+namespace AK400SE;
 
 /// <summary>Enforces a minimum time between two writes to the cooler. Time comes from a monotonic clock in milliseconds.</summary>
 public sealed class WriteGuard

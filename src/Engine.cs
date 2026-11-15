@@ -1,4 +1,4 @@
-namespace DeepCoolLite;
+namespace AK400SE;
 
 /// <summary>An open, already verified cooler. Show may throw when the connection is lost.</summary>
 public interface ICoolerLink : IDisposable

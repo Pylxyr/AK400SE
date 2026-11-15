@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Sanity-check a published deepcool-lite.exe and, optionally, the installer, WITHOUT running either. Works in
+  Sanity-check a published AK400SE.exe and, optionally, the installer, WITHOUT running either. Works in
   Windows PowerShell 5.1 and PowerShell 7.
 
   App exe (-Path): a Windows x64 GUI executable whose folder holds the bundled .NET runtime (self-contained), version
@@ -81,7 +81,7 @@ else { Fail 'manifest not found in the exe (app.manifest was not embedded)' }
 # self-contained: the runtime and the libraries are in the folder
 $dir = Split-Path -Parent $full
 $must = @('hostfxr.dll', 'hostpolicy.dll', 'coreclr.dll', 'System.Private.CoreLib.dll', 'System.Windows.Forms.dll',
-          'deepcool-lite.dll', 'deepcool-lite.runtimeconfig.json', 'LibreHardwareMonitorLib.dll', 'HidSharp.dll')
+          'AK400SE.dll', 'AK400SE.runtimeconfig.json', 'LibreHardwareMonitorLib.dll', 'HidSharp.dll')
 $missing = @($must | Where-Object { -not (Test-Path -LiteralPath (Join-Path $dir $_)) })
 if ($missing.Count -eq 0) { Ok 'self-contained: .NET runtime and libraries are next to the exe' }
 else { Fail ('missing next to the exe (not self-contained?): ' + ($missing -join ', ')) }
@@ -108,8 +108,8 @@ if ($InstallerPath) {
         Check-Version $ifull $ExpectedVersion
         if ($ExpectedVersion) {
             $want = $ExpectedVersion.Trim().TrimStart('v')
-            if ((Split-Path -Leaf $ifull) -eq "deepcool-lite-setup-$want.exe") { Ok 'file name carries the version' }
-            else { Fail "installer file name is '$(Split-Path -Leaf $ifull)', expected deepcool-lite-setup-$want.exe" }
+            if ((Split-Path -Leaf $ifull) -eq "AK400SE-setup-$want.exe") { Ok 'file name carries the version' }
+            else { Fail "installer file name is '$(Split-Path -Leaf $ifull)', expected AK400SE-setup-$want.exe" }
         }
     }
 }

@@ -5,8 +5,8 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>deepcool-lite</AssemblyName>
-    <RootNamespace>DeepCoolLite</RootNamespace>
+    <AssemblyName>AK400SE</AssemblyName>
+    <RootNamespace>AK400SE</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>src/app.ico</ApplicationIcon>
     <!-- `dotnet publish -c Release` produces a self-contained win-x64 folder (the .NET runtime is included; nothing to install first).
@@ -17,7 +17,7 @@
     <PublishReadyToRun>true</PublishReadyToRun>
     <!-- Single source of truth for the version. scripts/version.ps1 and the "Cut release" workflow rewrite this line. -->
     <Version>0.1.1</Version>
-    <Product>deepcool-lite</Product>
+    <Product>AK400SE</Product>
     <Description>Tray app for the DeepCool AK400 DIGITAL SE display</Description>
     <Copyright>Copyright (c) 2026 Pylxyr</Copyright>
     <!-- footprint: no globalization tables, no background/server GC threads, no PGO instrumentation -->

@@ -1,6 +1,6 @@
 using Microsoft.Win32;
 
-namespace DeepCoolLite.Ui;
+namespace AK400SE.Ui;
 
 static class PawnIo
 {

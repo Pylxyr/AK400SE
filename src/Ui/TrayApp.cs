@@ -3,7 +3,7 @@ using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
-namespace DeepCoolLite.Ui;
+namespace AK400SE.Ui;
 
 /// <summary>
 /// The tray icon and its menu, the engine thread, and the window (created on demand, disposed on close).
@@ -32,7 +32,7 @@ sealed class TrayApp : ApplicationContext
         _engine = new Engine(new HidFinder(), () => Cpu.Open(), PawnIo.IsInstalled, NowMs, _settings);
 
         var menu = new ContextMenuStrip();
-        var open = new ToolStripMenuItem("Open DeepCool Lite");
+        var open = new ToolStripMenuItem("Open AK400SE");
         open.Font = new Font(open.Font, FontStyle.Bold);
         open.Click += (s, e) => ShowWindow();
         var quit = new ToolStripMenuItem("Quit");
@@ -51,7 +51,7 @@ sealed class TrayApp : ApplicationContext
         _icon.MouseClick += (s, e) => { if (e.Button == MouseButtons.Left) ShowWindow(); };
 
         _engine.StatusChanged += st => OnUi(() => OnStatus(st));
-        _thread = new Thread(Loop) { IsBackground = true, Name = "DeepCool Lite engine" };
+        _thread = new Thread(Loop) { IsBackground = true, Name = "AK400SE engine" };
         _thread.Start();
     }
 
