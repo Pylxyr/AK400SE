@@ -233,6 +233,23 @@ void At(Engine e, long t) { now = t; e.Tick(); }
     At(e, 0); At(e, 1000);
     Check(e.Status.Temp == TempState.NoSensor, "driver present but no sensor: reported as such");
 }
+{   // PawnIO gets installed while the app runs: sensors are reopened and the temperature starts working
+    var link = new FakeLink();
+    var f = new FakeFinder(new ConnectOutcome(CoolerState.Connected, "A400-DIGITAL", link));
+    var broken = new FakeSensors { TempOk = false, Temp = 0 };
+    var fixedS = new FakeSensors { Temp = 58, Load = 12 };
+    bool driver = false; int opens = 0;
+    using var e = new Engine(f, () => { opens++; return opens == 1 ? broken : fixedS; }, () => driver, Clock, new Settings(Mode.Temp, 5));
+    At(e, 0); At(e, 1000);
+    Check(e.Status.Temp == TempState.DriverMissing && link.Shows.Count == 0 && opens == 1, "before the driver exists: reported, nothing written");
+    driver = true;
+    At(e, 20000);
+    Check(opens == 1 && e.Status.Temp == TempState.DriverMissing, "the driver is looked for only every 30 s");
+    At(e, 31000);
+    Check(opens == 2 && broken.Disposed, "once the driver shows up the sensors are reopened (and the old ones closed)");
+    At(e, 32000);
+    Check(e.Status.Temp == TempState.Ok && link.Shows.Count == 1 && link.Shows[0].Temp == 58, "and the temperature is shown without restarting");
+}
 {   // sensors cannot be opened at all
     var link = new FakeLink();
     var f = new FakeFinder(new ConnectOutcome(CoolerState.Connected, "A400-DIGITAL", link));

@@ -23,7 +23,7 @@ public static class StatusText
     public static string? Temperature(EngineStatus s) => s.Temp switch
     {
         TempState.Ok => "CPU temperature: available",
-        TempState.DriverMissing => "CPU temperature unavailable: the PawnIO driver is not installed. Install it, then restart DeepCool Lite.",
+        TempState.DriverMissing => "CPU temperature unavailable: the PawnIO driver is not installed. Once it is installed this updates by itself (restart Windows if it asks).",
         TempState.NoSensor => "CPU temperature unavailable: no readable temperature sensor was found.",
         _ => null,
     };

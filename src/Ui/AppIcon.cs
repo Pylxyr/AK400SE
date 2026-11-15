@@ -5,7 +5,19 @@ namespace DeepCoolLite.Ui;
 
 static class AppIcon
 {
-    /// <summary>The icon embedded as resource "app.ico", in the size Windows wants for a small icon (tray, title bar).</summary>
+    /// <summary>The whole multi-size icon, so the title bar and the taskbar each get a sharp size.</summary>
+    public static Icon LoadWindow()
+    {
+        try
+        {
+            using var s = typeof(AppIcon).Assembly.GetManifestResourceStream("app.ico");
+            if (s != null) return new Icon(s);
+        }
+        catch (Exception) { }
+        return SystemIcons.Application;
+    }
+
+    /// <summary>The embedded icon "app.ico" in the size Windows wants for the tray.</summary>
     public static Icon Load()
     {
         try

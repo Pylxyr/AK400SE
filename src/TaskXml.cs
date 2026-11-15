@@ -34,7 +34,7 @@ public static class TaskXml
     {
         if (!SidPattern.IsMatch(userSid ?? "")) throw new ArgumentException("not a Windows SID", nameof(userSid));
         if (string.IsNullOrWhiteSpace(exePath) || exePath.Length < 4 || exePath[1] != ':' || exePath[2] != '\\' ||
-            exePath.IndexOf('"') >= 0 || exePath.Any(char.IsControl))
+            exePath.Contains('"') || exePath.Any(char.IsControl))
             throw new ArgumentException("not an absolute Windows path", nameof(exePath));
 
         string sid = SecurityElement.Escape(userSid)!;

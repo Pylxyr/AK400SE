@@ -80,7 +80,7 @@ nothing is written (earlier versions guessed from the product name and retried; 
 - `Cooler not found`: check `3633:0001` in Device Manager > Human Interface Devices and the USB cable.
 - `Unsupported device: <name>`: the product string is not `A400-DIGITAL` (for example the regular AK400 DIGITAL), or the device declares no usable Output report.
 - `Cooler found but could not be used`: another program (the official DeepCool software) has it open, or the first write was refused.
-- `CPU temperature unavailable: the PawnIO driver is not installed`: install PawnIO (`winget install namazso.PawnIO`) and restart the app. A driver that is installed but gives no reading shows `no readable temperature sensor`.
+- `CPU temperature unavailable: the PawnIO driver is not installed`: install PawnIO (`winget install namazso.PawnIO`); the app notices it within about 30 s (restart Windows if the PawnIO installer asks). A driver that is installed but gives no reading shows `no readable temperature sensor`.
 - "Display blank" while the status says connected: wait a few seconds (the first frame comes one tick after connecting).
 
 ## Tests (run from the repo root)

@@ -46,6 +46,7 @@ public sealed class Engine : IDisposable
     CoolerState _cooler = CoolerState.NotFound;
     string _product = "";
     bool _driverCached = true;
+    bool _reopenSensors;
     long _nextDriverCheck;
     volatile EngineStatus _status = EngineStatus.Start;
 
@@ -89,6 +90,14 @@ public sealed class Engine : IDisposable
             catch (Exception) { tempOk = false; loadOk = false; }
         }
         Publish(now, tempOk, loadOk);
+        if (_reopenSensors)
+        {
+            // the PawnIO driver appeared while we were running: open the CPU sensors again so the temperature starts working
+            _reopenSensors = false;
+            try { _sensors?.Dispose(); } catch (Exception) { }
+            _sensors = SafeOpenSensors();
+            return;
+        }
 
         var pick = ModeScheduler.Pick(s.Mode, now - _phaseStart, s.SwitchSeconds, tempOk, loadOk);
         if (pick == Shown.Nothing) return;   // never send a made-up 0
@@ -116,7 +125,9 @@ public sealed class Engine : IDisposable
         {
             if (now >= _nextDriverCheck)
             {
+                bool was = _driverCached;
                 try { _driverCached = _driverInstalled(); } catch (Exception) { _driverCached = true; }
+                if (!was && _driverCached && _link is not null) _reopenSensors = true;
                 _nextDriverCheck = now + DriverCheckMs;
             }
             t = !_driverCached ? TempState.DriverMissing : _sensorsTried ? TempState.NoSensor : TempState.Unknown;

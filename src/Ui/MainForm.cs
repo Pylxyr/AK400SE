@@ -3,7 +3,25 @@ using System.Windows.Forms;
 
 namespace DeepCoolLite.Ui;
 
-/// <summary>The settings window: standard controls, laid out by containers so it follows the system font and DPI. Created when opened, disposed when closed.</summary>
+/// <summary>A label that wraps its text to the width it is given and reports the height that needs (plain Labels do not).</summary>
+sealed class WrapLabel : Label
+{
+    public WrapLabel() { AutoSize = true; }
+
+    public override Size GetPreferredSize(Size proposedSize)
+    {
+        int width = proposedSize.Width;
+        if (width <= 0 || width == int.MaxValue) width = Parent != null ? Parent.ClientSize.Width : 320;
+        int inner = Math.Max(width - Padding.Horizontal, 20);
+        Size text = TextRenderer.MeasureText(Text, Font, new Size(inner, int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.NoPadding);
+        return new Size(width, text.Height + Padding.Vertical + 2);
+    }
+}
+
+/// <summary>
+/// The settings window: standard controls in one table of auto-height rows, so nothing can be cut off and it follows the
+/// system font and DPI. It can be resized (never smaller than its content). Created when opened, disposed when closed.
+/// </summary>
 sealed class MainForm : Form
 {
     sealed class Choice
@@ -13,17 +31,22 @@ sealed class MainForm : Form
         public override string ToString() => Seconds + " seconds";
     }
 
+    const int StartWidth = 420;   // logical pixels at 100 % scaling; scaled automatically on high-DPI screens
+
     readonly RadioButton _temp = new RadioButton { Text = "Temperature", AutoSize = true };
     readonly RadioButton _usage = new RadioButton { Text = "CPU usage", AutoSize = true };
     readonly RadioButton _both = new RadioButton { Text = "Both, alternating", AutoSize = true };
     readonly ComboBox _switch = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 110 };
-    readonly Label _cooler = new Label { AutoSize = true, MaximumSize = new Size(360, 0) };
-    readonly Label _temperature = new Label { AutoSize = true, MaximumSize = new Size(360, 0) };
+    readonly WrapLabel _cooler = new WrapLabel { Dock = DockStyle.Fill };
+    readonly WrapLabel _temperature = new WrapLabel { Dock = DockStyle.Fill };
     readonly CheckBox _start = new CheckBox { Text = "Start with Windows", AutoSize = true };
-    readonly Button _close = new Button { Text = "Close", AutoSize = true, MinimumSize = new Size(88, 0) };
+    readonly Button _close = new Button { Text = "Close", AutoSize = true, MinimumSize = new Size(92, 30) };
+    readonly TableLayoutPanel _root = new TableLayoutPanel();
+    readonly Font _bold;
     readonly Action<Settings> _onSettings;
     readonly Func<bool, string?> _onAutostart;
     bool _loading = true;
+    int _minWidth;
 
     public MainForm(Settings settings, EngineStatus status, bool autostartOn, bool autostartAvailable,
                     Action<Settings> onSettings, Func<bool, string?> onAutostart)
@@ -31,72 +54,60 @@ sealed class MainForm : Form
         _onSettings = onSettings;
         _onAutostart = onAutostart;
 
+        SuspendLayout();
         Text = "DeepCool Lite";
-        Icon = AppIcon.Load();
+        Icon = AppIcon.LoadWindow();
         Font = SystemFonts.MessageBoxFont ?? Font;
+        _bold = new Font(Font, FontStyle.Bold);
+        AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
-        FormBorderStyle = FormBorderStyle.FixedDialog;
+        FormBorderStyle = FormBorderStyle.Sizable;   // can be resized; the title bar moves it as usual
         MaximizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        AutoSize = true;
-        AutoSizeMode = AutoSizeMode.GrowAndShrink;
-        Padding = new Padding(12);
+        Padding = new Padding(18, 12, 18, 16);
+        ClientSize = new Size(StartWidth, 380);      // the height is fitted to the content in OnLoad
 
         foreach (int s in Settings.SwitchChoices) _switch.Items.Add(new Choice(s));
 
-        // what the cooler shows
-        var modeFlow = new FlowLayoutPanel
+        _root.Dock = DockStyle.Fill;
+        _root.ColumnCount = 1;
+        _root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+
+        AddRow(Section("What the cooler shows"));
+        foreach (var rb in new[] { _temp, _usage, _both })
         {
-            FlowDirection = FlowDirection.TopDown, WrapContents = false,
-            AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Dock = DockStyle.Top,
-        };
-        modeFlow.Controls.Add(_temp);
-        modeFlow.Controls.Add(_usage);
-        modeFlow.Controls.Add(_both);
-        var switchRow = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Margin = new Padding(20, 0, 0, 0) };
-        switchRow.Controls.Add(new Label { Text = "Switch every", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 0);
+            rb.Margin = new Padding(10, 3, 3, 3);
+            AddRow(rb);
+        }
+        var switchRow = new TableLayoutPanel { ColumnCount = 2, RowCount = 1, AutoSize = true, Margin = new Padding(32, 0, 0, 0) };
+        switchRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        switchRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        switchRow.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        switchRow.Controls.Add(new Label { Text = "Switch every", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 0, 8, 0) }, 0, 0);
+        _switch.Anchor = AnchorStyles.Left;
         switchRow.Controls.Add(_switch, 1, 0);
-        modeFlow.Controls.Add(switchRow);
-        var modeGroup = new GroupBox
-        {
-            Text = "What the cooler shows", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Dock = DockStyle.Fill, Padding = new Padding(10, 4, 10, 8), Margin = new Padding(0, 0, 0, 8),
-        };
-        modeGroup.Controls.Add(modeFlow);
+        AddRow(switchRow);
 
-        // status
-        var statusFlow = new FlowLayoutPanel
-        {
-            FlowDirection = FlowDirection.TopDown, WrapContents = false,
-            AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Dock = DockStyle.Top,
-        };
-        statusFlow.Controls.Add(_cooler);
-        statusFlow.Controls.Add(_temperature);
-        var statusGroup = new GroupBox
-        {
-            Text = "Status", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Dock = DockStyle.Fill, Padding = new Padding(10, 4, 10, 8), Margin = new Padding(0, 0, 0, 8),
-        };
-        statusGroup.Controls.Add(statusFlow);
+        AddRow(Section("Status"));
+        _cooler.Margin = new Padding(10, 3, 3, 3);
+        _temperature.Margin = new Padding(10, 3, 3, 3);
+        AddRow(_cooler);
+        AddRow(_temperature);
 
-        var root = new TableLayoutPanel { ColumnCount = 1, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Dock = DockStyle.Fill };
-        root.Controls.Add(modeGroup);
-        root.Controls.Add(statusGroup);
-        _start.Margin = new Padding(3, 0, 3, 8);
-        root.Controls.Add(_start);
+        AddRow(Section("Start-up"));
+        _start.Margin = new Padding(10, 3, 3, 3);
+        AddRow(_start);
         if (!autostartAvailable)
         {
             _start.Enabled = false;
-            root.Controls.Add(new Label
-            {
-                Text = "Available after installing with the setup program.", AutoSize = true,
-                MaximumSize = new Size(360, 0), Margin = new Padding(3, 0, 3, 8),
-            });
+            AddRow(new WrapLabel { Text = "Available after installing with the setup program.", Dock = DockStyle.Fill, Margin = new Padding(10, 0, 3, 3) });
         }
-        _close.Anchor = AnchorStyles.Right;
-        root.Controls.Add(_close);
-        Controls.Add(root);
 
+        _close.Anchor = AnchorStyles.Right;
+        _close.Margin = new Padding(3, 14, 3, 0);
+        AddRow(_close);
+
+        Controls.Add(_root);
         AcceptButton = _close;
         CancelButton = _close;
         _close.Click += (s, e) => Close();
@@ -118,6 +129,41 @@ sealed class MainForm : Form
         _both.CheckedChanged += OnModeChanged;
         _switch.SelectedIndexChanged += OnModeChanged;
         _start.CheckedChanged += OnStartChanged;
+        ResumeLayout(true);
+    }
+
+    void AddRow(Control c)
+    {
+        _root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        _root.Controls.Add(c, 0, _root.RowStyles.Count - 1);
+        _root.RowCount = _root.RowStyles.Count;
+    }
+
+    /// <summary>A bold heading followed by the usual thin etched line.</summary>
+    Control Section(string text)
+    {
+        var t = new TableLayoutPanel { ColumnCount = 2, RowCount = 1, AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0, 12, 0, 4) };
+        t.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        t.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        t.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        t.Controls.Add(new Label { Text = text, Font = _bold, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 0, 8, 0) }, 0, 0);
+        t.Controls.Add(new Label { AutoSize = false, Height = 2, BorderStyle = BorderStyle.Fixed3D, Anchor = AnchorStyles.Left | AnchorStyles.Right, Margin = new Padding(0, 2, 0, 0) }, 1, 0);
+        return t;
+    }
+
+    /// <summary>Height the content needs at the current width.</summary>
+    void FitHeight(bool exact)
+    {
+        int needed = _root.GetPreferredSize(new Size(ClientSize.Width - Padding.Horizontal, 0)).Height + Padding.Vertical;
+        if (exact || needed > ClientSize.Height) ClientSize = new Size(ClientSize.Width, needed);
+        if (_minWidth == 0) _minWidth = Width;   // never narrower than it opened
+        MinimumSize = new Size(_minWidth, Height - ClientSize.Height + needed);
+    }
+
+    protected override void OnLoad(EventArgs e)
+    {
+        base.OnLoad(e);
+        FitHeight(true);
     }
 
     public void UpdateStatus(EngineStatus st)
@@ -126,6 +172,7 @@ sealed class MainForm : Form
         string? t = StatusText.Temperature(st);
         _temperature.Text = t ?? "";
         _temperature.Visible = t != null;
+        if (IsHandleCreated) FitHeight(false);   // a longer message may need more room
     }
 
     void OnModeChanged(object? sender, EventArgs e)
@@ -147,5 +194,11 @@ sealed class MainForm : Form
         _start.Checked = !_start.Checked;
         _loading = false;
         MessageBox.Show(this, error, "DeepCool Lite", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) _bold.Dispose();
+        base.Dispose(disposing);
     }
 }
