@@ -3,7 +3,7 @@ namespace DeepCoolLite;
 /// <summary>An open, already verified cooler. Show may throw when the connection is lost.</summary>
 public interface ICoolerLink : IDisposable
 {
-    void Show(bool showUsage, int tempC, int usagePct);
+    void Show(bool showUsage, int temp, int usagePct, bool fahrenheit);
 }
 
 public sealed record ConnectOutcome(CoolerState State, string Product, ICoolerLink? Link);
@@ -102,7 +102,8 @@ public sealed class Engine : IDisposable
         var pick = ModeScheduler.Pick(s.Mode, now - _phaseStart, s.SwitchSeconds, tempOk, loadOk);
         if (pick == Shown.Nothing) return;   // never send a made-up 0
 
-        try { _link.Show(pick == Shown.Usage, temp, load); }
+        int shown = s.Fahrenheit ? Packet.ToFahrenheit(temp) : temp;
+        try { _link.Show(pick == Shown.Usage, shown, load, s.Fahrenheit); }
         catch (Exception)
         {
             // unplugged, sleep/resume, stalled write: drop the handle and look again shortly

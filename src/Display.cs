@@ -49,7 +49,7 @@ sealed class Display : ICoolerLink
     }
 
     /// <summary>Shows one frame. Frames closer together than the minimum write interval are dropped.</summary>
-    public void Show(bool showUsage, int tempC, int usagePct) => Write(Packet.Frame(showUsage, tempC, usagePct));
+    public void Show(bool showUsage, int temp, int usagePct, bool fahrenheit) => Write(Packet.Frame(showUsage, temp, usagePct, fahrenheit));
 
     void Write(byte[] payload)
     {

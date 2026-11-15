@@ -301,19 +301,51 @@ void At(Engine e, long t) { now = t; e.Tick(); }
 var fr = Packet.Frame(false, 5000, 400);
 Check(fr[2] == 9 && fr[3] == 9 && fr[4] == 9 && fr[1] == 10, "frames are clamped: 999 deg, 100 %");
 
+// ---------- Fahrenheit ----------
+Check(Packet.ToFahrenheit(0) == 32 && Packet.ToFahrenheit(100) == 212 && Packet.ToFahrenheit(37) == 99 && Packet.ToFahrenheit(61) == 142 && Packet.ToFahrenheit(55) == 131 && Packet.ToFahrenheit(-40) == -40, "Celsius to Fahrenheit, rounded half up");
+var ff = Packet.Frame(false, 142, 23, true);
+Check(ff[0] == 35 && ff[2] == 1 && ff[3] == 4 && ff[4] == 2, "Fahrenheit frame: mode byte 35 and the digits of the value");
+Check(Packet.Frame(false, 142, 23, false)[0] == 19 && Packet.Frame(false, 61, 23)[0] == 19, "Celsius frames still use mode byte 19, with or without the flag");
+Check(Packet.Frame(false, 61, 23).SequenceEqual(Packet.Frame(false, 61, 23, false)), "the 3-argument Frame is the Celsius frame (what the packet-identity test covers)");
+Check(Packet.Frame(true, 142, 55, true)[0] == 76 && Packet.Frame(true, 142, 55, true).SequenceEqual(Packet.Frame(true, 3, 55, false)), "usage frames ignore the unit and the temperature");
+Check(Packet.Frame(false, 5000, 10, true)[2] == 9 && Packet.Frame(false, -9, 10, true)[4] == 0, "Fahrenheit values are clamped like Celsius ones");
+Check(Packet.Frame(false, 212, 100, true)[1] == 10, "the bar still follows usage in Fahrenheit frames");
+Check(SettingsFile.Parse("{\"fahrenheit\":true}").Fahrenheit && !SettingsFile.Parse("{\"fahrenheit\":false}").Fahrenheit, "fahrenheit setting parsed");
+Check(!SettingsFile.Parse("{}").Fahrenheit && !SettingsFile.Parse("{\"fahrenheit\":\"true\"}").Fahrenheit && !SettingsFile.Parse("{\"fahrenheit\":1}").Fahrenheit && !SettingsFile.Parse("garbage").Fahrenheit, "anything but a real true means Celsius (also for old settings files)");
+Check(Settings.Default.Fahrenheit == false && new Settings(Mode.Temp, 5, true).Normalized().Fahrenheit, "default is Celsius; Normalized keeps the unit");
+foreach (bool unit in new[] { false, true })
+    Check(SettingsFile.Parse(SettingsFile.ToJson(new Settings(Mode.Temp, 7, unit))) == new Settings(Mode.Temp, 7, unit), $"round trip with fahrenheit={unit}");
+Check(SettingsFile.ToJson(new Settings(Mode.Auto, 5, true)).Contains("\"fahrenheit\": true") && SettingsFile.ToJson(Settings.Default).Length < 100, "the file stays small and names the unit");
+{   // the engine converts and passes the unit to the cooler
+    var link = new FakeLink();
+    var f = new FakeFinder(new ConnectOutcome(CoolerState.Connected, "A400-DIGITAL", link));
+    using var e = Make(f, new FakeSensors { Temp = 61, Load = 23 }, set: new Settings(Mode.Temp, 5, true));
+    At(e, 0); At(e, 1000);
+    Check(link.Shows.Count == 1 && link.Shows[0] == new FakeLink.Frame(false, 142, 23, true), "Fahrenheit: 61 C is sent as 142 with the Fahrenheit flag");
+    e.Settings = new Settings(Mode.Temp, 5, false);
+    At(e, 2000);
+    Check(link.Shows[^1] == new FakeLink.Frame(false, 61, 23, false), "switching back to Celsius sends the Celsius value on the next tick");
+    e.Settings = new Settings(Mode.Usage, 5, true);
+    At(e, 3000);
+    Check(link.Shows[^1].Usage && link.Shows[^1].Load == 23, "usage mode is unaffected by the unit");
+    e.Settings = new Settings(Mode.Auto, 3, true);
+    At(e, 4000); At(e, 5000);
+    Check(!link.Shows[^1].Usage && link.Shows[^1].Temp == 142 && link.Shows[^1].F, "'both' shows the converted temperature too");
+}
+
 Console.WriteLine(failed == 0 ? $"LOGIC TESTS: PASS ({checks} checks)" : $"LOGIC TESTS: FAIL ({failed} of {checks})");
 return failed == 0 ? 0 : 1;
 
 // ---------- fakes ----------
 sealed class FakeLink : ICoolerLink
 {
-    public record Frame(bool Usage, int Temp, int Load);
+    public record Frame(bool Usage, int Temp, int Load, bool F);
     public List<Frame> Shows = new();
     public bool FailOnShow, Disposed;
-    public void Show(bool showUsage, int tempC, int usagePct)
+    public void Show(bool showUsage, int temp, int usagePct, bool fahrenheit)
     {
         if (FailOnShow) throw new IOException("unplugged");
-        Shows.Add(new Frame(showUsage, tempC, usagePct));
+        Shows.Add(new Frame(showUsage, temp, usagePct, fahrenheit));
     }
     public void Dispose() => Disposed = true;
 }

@@ -36,6 +36,9 @@ sealed class MainForm : Form
     readonly RadioButton _temp = new RadioButton { Text = "Temperature", AutoSize = true };
     readonly RadioButton _usage = new RadioButton { Text = "CPU usage", AutoSize = true };
     readonly RadioButton _both = new RadioButton { Text = "Both, alternating", AutoSize = true };
+    readonly RadioButton _celsius = new RadioButton { Text = "Celsius (\u00B0C)", AutoSize = true };
+    readonly RadioButton _fahrenheit = new RadioButton { Text = "Fahrenheit (\u00B0F)", AutoSize = true };
+    readonly FlowLayoutPanel _unit = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, WrapContents = false };
     readonly ComboBox _switch = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 110 };
     readonly WrapLabel _cooler = new WrapLabel { Dock = DockStyle.Fill };
     readonly WrapLabel _temperature = new WrapLabel { Dock = DockStyle.Fill };
@@ -88,6 +91,14 @@ sealed class MainForm : Form
         switchRow.Controls.Add(_switch, 1, 0);
         AddRow(switchRow);
 
+        AddRow(Section("Temperature unit"));
+        _celsius.Margin = new Padding(0, 3, 16, 3);
+        _fahrenheit.Margin = new Padding(0, 3, 3, 3);
+        _unit.Controls.Add(_celsius);       // its own container, so these two form their own radio group
+        _unit.Controls.Add(_fahrenheit);
+        _unit.Margin = new Padding(10, 0, 3, 0);
+        AddRow(_unit);
+
         AddRow(Section("Status"));
         _cooler.Margin = new Padding(10, 3, 3, 3);
         _temperature.Margin = new Padding(10, 3, 3, 3);
@@ -120,6 +131,9 @@ sealed class MainForm : Form
         for (int i = 0; i < _switch.Items.Count; i++)
             if (((Choice)_switch.Items[i]).Seconds == n.SwitchSeconds) _switch.SelectedIndex = i;
         _switch.Enabled = _both.Checked;
+        _celsius.Checked = !n.Fahrenheit;
+        _fahrenheit.Checked = n.Fahrenheit;
+        _unit.Enabled = !_usage.Checked;     // the unit only matters when the temperature is shown
         _start.Checked = autostartOn && autostartAvailable;
         UpdateStatus(status);
         _loading = false;
@@ -127,6 +141,8 @@ sealed class MainForm : Form
         _temp.CheckedChanged += OnModeChanged;
         _usage.CheckedChanged += OnModeChanged;
         _both.CheckedChanged += OnModeChanged;
+        _celsius.CheckedChanged += OnModeChanged;
+        _fahrenheit.CheckedChanged += OnModeChanged;
         _switch.SelectedIndexChanged += OnModeChanged;
         _start.CheckedChanged += OnStartChanged;
         ResumeLayout(true);
@@ -180,9 +196,10 @@ sealed class MainForm : Form
         if (_loading) return;
         if (sender is RadioButton rb && !rb.Checked) return;   // react to the button that became selected only
         _switch.Enabled = _both.Checked;
+        _unit.Enabled = !_usage.Checked;
         var mode = _temp.Checked ? Mode.Temp : _usage.Checked ? Mode.Usage : Mode.Auto;
         int seconds = (_switch.SelectedItem as Choice)?.Seconds ?? Settings.DefaultSwitchSeconds;
-        _onSettings(new Settings(mode, seconds));
+        _onSettings(new Settings(mode, seconds, _fahrenheit.Checked));
     }
 
     void OnStartChanged(object? sender, EventArgs e)

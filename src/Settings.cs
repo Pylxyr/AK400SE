@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace DeepCoolLite;
 
 /// <summary>The user's choices. Everything is clamped to known values: a hand-edited file cannot produce anything else.</summary>
-public sealed record Settings(Mode Mode, int SwitchSeconds)
+public sealed record Settings(Mode Mode, int SwitchSeconds, bool Fahrenheit = false)
 {
     /// <summary>The auto mode of the official software alternates every 5 s (7 s in an early release); offer a few nearby values.</summary>
     public static readonly IReadOnlyList<int> SwitchChoices = new[] { 3, 5, 7, 10 };
@@ -11,7 +11,7 @@ public sealed record Settings(Mode Mode, int SwitchSeconds)
     public static readonly Settings Default = new(Mode.Auto, DefaultSwitchSeconds);
 
     public Settings Normalized() =>
-        new(Enum.IsDefined(Mode) ? Mode : Default.Mode, NearestChoice(SwitchSeconds));
+        new(Enum.IsDefined(Mode) ? Mode : Default.Mode, NearestChoice(SwitchSeconds), Fahrenheit);
 
     public static int NearestChoice(int seconds)
     {
@@ -26,7 +26,7 @@ public sealed record Settings(Mode Mode, int SwitchSeconds)
     }
 }
 
-/// <summary>One small JSON file: {"mode": "temp|usage|auto", "switchSeconds": n}. Reading never throws.</summary>
+/// <summary>One small JSON file: {"mode": "temp|usage|auto", "switchSeconds": n, "fahrenheit": true|false}. Reading never throws.</summary>
 public static class SettingsFile
 {
     public const int MaxBytes = 4096;
@@ -39,7 +39,8 @@ public static class SettingsFile
     public static string ToJson(Settings s)
     {
         var n = s.Normalized();
-        return "{\n  \"mode\": \"" + ModeName(n.Mode) + "\",\n  \"switchSeconds\": " + n.SwitchSeconds + "\n}\n";
+        return "{\n  \"mode\": \"" + ModeName(n.Mode) + "\",\n  \"switchSeconds\": " + n.SwitchSeconds +
+               ",\n  \"fahrenheit\": " + (n.Fahrenheit ? "true" : "false") + "\n}\n";
     }
 
     public static Settings Parse(string? json)
@@ -63,7 +64,8 @@ public static class SettingsFile
             int seconds = Settings.DefaultSwitchSeconds;
             if (doc.RootElement.TryGetProperty("switchSeconds", out var n) && n.ValueKind == JsonValueKind.Number)
                 seconds = n.TryGetDouble(out double d) ? (int)Math.Clamp(Math.Round(d), 0, 1000) : seconds;
-            return new Settings(mode, seconds).Normalized();
+            bool fahrenheit = doc.RootElement.TryGetProperty("fahrenheit", out var f) && f.ValueKind == JsonValueKind.True;
+            return new Settings(mode, seconds, fahrenheit).Normalized();
         }
         catch (JsonException) { return Settings.Default; }
     }

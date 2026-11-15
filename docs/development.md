@@ -6,7 +6,7 @@ deepcool-lite is a small Windows tray app that drives the display of the **DeepC
 It shows CPU temperature and/or CPU usage. Earlier versions were a console program with command-line options; those are gone: the app
 is configured in its window (settings in `%LOCALAPPDATA%\DeepCoolLite\settings.json`).
 
-Scope is deliberately small: AK400 DIGITAL SE only, Celsius only, CPU only, no alarm, no other cooler models.
+Scope is deliberately small: AK400 DIGITAL SE only, CPU only, no alarm, no other cooler models.
 
 ## How it works
 - `src/Program.cs`: entry point. Started normally, it asks Task Scheduler to start the installed task `DeepCoolLite`, which runs the same
@@ -71,7 +71,8 @@ nothing is written (earlier versions guessed from the product name and retried; 
   ([Nortank12/deepcool-digital-linux](https://github.com/Nortank12/deepcool-digital-linux)), a unit with report IDs 2-5 and 16 in its
   HID descriptor behaves differently, and that is not solved upstream either.
 - The installer and exe are unsigned (SmartScreen warns).
-- AK400 DIGITAL SE only; Celsius only; CPU only. No alarm, Fahrenheit, GPU or other models.
+- AK400 DIGITAL SE only; CPU only. No alarm, GPU or other models.
+- Fahrenheit sends mode byte `35` with the value converted on the PC, as the open-source Linux port of the official software does. It has been checked against that source and by tests, not yet confirmed on every unit.
 - There is no log file: the window's status lines are the diagnostics.
 - The auto-switch interval offered in the window is 3/5/7/10 s (default 5 s). The Linux port of the official software uses a fixed 5 s;
   an early hands-on review measured 7 s. The official Windows app was not available to compare against.
@@ -108,7 +109,7 @@ rule, `github-actions[bot]` must be allowed to push to it. `.github/dependabot.y
 ## Protocol (64-byte payload, report ID not part of it for SE)
 | byte | meaning |
 |---|---|
-| 0 | 170 init/animation, 19 temperature (C), 76 usage |
+| 0 | 170 init/animation, 19 temperature (C), 35 temperature (F), 76 usage |
 | 1 | status bar 1-10 (usage: <15% -> 1, else nearest 10%) |
 | 2,3,4 | hundreds, tens, ones digit |
 | 5 | alarm (unused here) |

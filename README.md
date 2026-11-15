@@ -5,6 +5,7 @@ DeepCool Lite is a small tray application for Windows that shows CPU temperature
 
 ## What it does
 - Display modes: temperature, CPU usage, or both alternating at a chosen interval (3, 5, 7 or 10 seconds). The bar on the display always follows CPU usage.
+- Temperature unit: Celsius or Fahrenheit.
 - Runs from a tray icon. Closing the settings window hides it to the tray; the tray menu opens the window or quits the program.
 - Optional start with Windows. Administrator rights are granted once, by the installer, through a scheduled task, so no UAC prompt appears at start-up.
 - Ships as a single installer with the .NET runtime included. Nothing else has to be installed first.
