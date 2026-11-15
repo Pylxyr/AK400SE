@@ -16,7 +16,7 @@
     <PublishSingleFile>false</PublishSingleFile>
     <PublishReadyToRun>true</PublishReadyToRun>
     <!-- Single source of truth for the version. scripts/version.ps1 and the "Cut release" workflow rewrite this line. -->
-    <Version>0.1.1</Version>
+    <Version>0.2.0</Version>
     <Product>AK400SE</Product>
     <Description>Tray app for the DeepCool AK400 DIGITAL SE display</Description>
     <Copyright>Copyright (c) 2026 Pylxyr</Copyright>
