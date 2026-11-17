@@ -3,7 +3,13 @@ namespace AK400SE;
 /// <summary>An open, already verified cooler. Show may throw when the connection is lost.</summary>
 public interface ICoolerLink : IDisposable
 {
-    void Show(bool showUsage, int temp, int usagePct, bool fahrenheit);
+    void Show(bool showUsage, int temp, int usagePct, bool fahrenheit, bool alarm);
+}
+
+/// <summary>The latest CPU readings (Celsius), for the live readout in the window. Not shown values: those depend on the unit.</summary>
+public sealed record Readings(int TempC, int LoadPct, bool TempOk, bool LoadOk)
+{
+    public static readonly Readings None = new(0, 0, false, false);
 }
 
 public sealed record ConnectOutcome(CoolerState State, string Product, ICoolerLink? Link);
@@ -49,9 +55,12 @@ public sealed class Engine : IDisposable
     bool _reopenSensors;
     long _nextDriverCheck;
     volatile EngineStatus _status = EngineStatus.Start;
+    volatile Readings _live = Readings.None;
 
     public event Action<EngineStatus>? StatusChanged;
     public EngineStatus Status => _status;
+    /// <summary>Latest readings; polled by the window while it is open (no events, so nothing wakes up when the window is closed).</summary>
+    public Readings Live => _live;
 
     public Settings Settings { get => _settings; set => _settings = value.Normalized(); }
 
@@ -74,6 +83,7 @@ public sealed class Engine : IDisposable
             try { o = _finder.TryConnect(); }
             catch (Exception) { o = new ConnectOutcome(CoolerState.NotFound, "", null); }
             _nextConnectAt = now + ReconnectMs;
+            _live = Readings.None;
             _cooler = o.Link is null ? o.State : CoolerState.Connected;
             _product = o.Product;
             _link = o.Link;
@@ -89,6 +99,7 @@ public sealed class Engine : IDisposable
             try { (temp, load) = _sensors.Read(); tempOk = _sensors.TempAvailable; loadOk = _sensors.LoadAvailable; }
             catch (Exception) { tempOk = false; loadOk = false; }
         }
+        _live = new Readings(temp, load, tempOk, loadOk);
         Publish(now, tempOk, loadOk);
         if (_reopenSensors)
         {
@@ -103,12 +114,13 @@ public sealed class Engine : IDisposable
         if (pick == Shown.Nothing) return;   // never send a made-up 0
 
         int shown = s.Fahrenheit ? Packet.ToFahrenheit(temp) : temp;
-        try { _link.Show(pick == Shown.Usage, shown, load, s.Fahrenheit); }
+        bool alarm = s.Alarm && tempOk && temp >= s.AlarmC;   // flashes in every frame while too hot, whichever number is shown
+        try { _link.Show(pick == Shown.Usage, shown, load, s.Fahrenheit, alarm); }
         catch (Exception)
         {
             // unplugged, sleep/resume, stalled write: drop the handle and look again shortly
             try { _link.Dispose(); } catch (Exception) { }
-            _link = null; _cooler = CoolerState.NotFound; _nextConnectAt = now + DropRetryMs;
+            _link = null; _cooler = CoolerState.NotFound; _nextConnectAt = now + DropRetryMs; _live = Readings.None;
             Publish(now, false, false);
         }
     }

@@ -30,6 +30,9 @@
   <ItemGroup>
     <Compile Remove="tests/**" />
     <EmbeddedResource Include="src/app.ico" LogicalName="app.ico" />
+    <EmbeddedResource Include="src/Ui/fonts/DSEG7Classic-Bold.ttf" LogicalName="digits.ttf" />
+    <!-- the font is under the SIL Open Font License, which requires its license text to travel with it -->
+    <None Include="ThirdParty/DSEG-LICENSE.txt" Link="ThirdParty/DSEG-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
     <PackageReference Include="HidSharp" Version="2.6.4" />
   </ItemGroup>

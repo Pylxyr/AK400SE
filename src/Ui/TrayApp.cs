@@ -28,7 +28,7 @@ sealed class TrayApp : ApplicationContext
     public TrayApp()
     {
         _ = _marshal.Handle;
-        _settings = SettingsFile.Load(_settingsPath);
+        _settings = SettingsFile.LoadMigrating(_settingsPath, SettingsFile.LegacyPath());
         _engine = new Engine(new HidFinder(), () => Cpu.Open(), PawnIo.IsInstalled, NowMs, _settings);
 
         var menu = new ContextMenuStrip();
@@ -85,7 +85,7 @@ sealed class TrayApp : ApplicationContext
             _form.Activate();
             return;
         }
-        var form = new MainForm(_settings, _engine.Status, StartTask.IsLogonEnabled(), StartTask.CanManage(), OnSettings, OnAutostart);
+        var form = new MainForm(_settings, _engine.Status, () => _engine.Live, StartTask.IsLogonEnabled(), StartTask.CanManage(), OnSettings, OnAutostart);
         form.FormClosed += (s, e) => { _form = null; OnUi(ReleaseMemory); };   // closing = hide to the tray: the window is gone, the app stays
         _form = form;
         form.Show();

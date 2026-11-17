@@ -18,6 +18,7 @@ static class Program
 
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
+        DarkMode.Enable();
 
         if (!Elevation.IsElevated())
         {

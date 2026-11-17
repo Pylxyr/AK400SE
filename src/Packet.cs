@@ -22,11 +22,14 @@ public static class Packet
         return p;
     }
 
-    public static byte[] Frame(bool showUsage, int tempC, int usagePct) => Frame(showUsage, tempC, usagePct, false);
+    public static byte[] Frame(bool showUsage, int tempC, int usagePct) => Frame(showUsage, tempC, usagePct, false, false);
+
+    public static byte[] Frame(bool showUsage, int temp, int usagePct, bool fahrenheit) => Frame(showUsage, temp, usagePct, fahrenheit, false);
 
     /// <param name="temp">The temperature in the unit that is shown (Celsius, or Fahrenheit when <paramref name="fahrenheit"/> is true).
     /// The display only shows the number; the mode byte tells it which unit to light up. Ignored in usage frames.</param>
-    public static byte[] Frame(bool showUsage, int temp, int usagePct, bool fahrenheit)
+    /// <param name="alarm">Makes the display flash (byte 5). The caller decides when the temperature is too high.</param>
+    public static byte[] Frame(bool showUsage, int temp, int usagePct, bool fahrenheit, bool alarm)
     {
         temp = Math.Clamp(temp, 0, 999);
         usagePct = Math.Clamp(usagePct, 0, 100);
@@ -39,6 +42,7 @@ public static class Packet
         p[2] = (byte)(n / 100);
         p[3] = (byte)(n % 100 / 10);
         p[4] = (byte)(n % 10);
+        p[5] = alarm ? (byte)1 : (byte)0;
         return p;
     }
 

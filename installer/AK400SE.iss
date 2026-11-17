@@ -8,6 +8,8 @@
 #define AppExe "AK400SE.exe"
 #define AppPublisher "Pylxyr"
 #define AppUrl "https://github.com/Pylxyr/AK400SE"
+; The installer ID. It never changes, so every version (and the old "DeepCool Lite" 0.1.x) is recognised as the same product.
+#define AppGuid "99F4FFF9-D367-4302-8080-91AFCA0D9FEE"
 
 ; The official PawnIO installer that is bundled, unmodified. scripts\get-pawnio.ps1 downloads exactly this release from
 ; github.com/namazso/PawnIO.Setup and refuses to continue if its SHA-256 differs. Setup checks it again before running it.
@@ -27,7 +29,7 @@
 #endif
 
 [Setup]
-AppId={{99F4FFF9-D367-4302-8080-91AFCA0D9FEE}
+AppId={{{#AppGuid}}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher={#AppPublisher}
@@ -127,6 +129,21 @@ begin
   Result := (PawnPage <> nil) and (PageID = PawnPage.ID) and PawnIoInstalled();
 end;
 
+procedure UninstallPrevious();
+var
+  Cmd: String;
+  Code: Integer;
+begin
+  // A previous version (any version, including the 0.1.x "DeepCool Lite") is uninstalled first, so no old files, shortcuts or tasks stay behind.
+  // Its settings (in the user's profile) and PawnIO are left alone.
+  Cmd := '';
+  if not RegQueryStringValue(HKLM64, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{' + '{#AppGuid}' + '}_is1', 'UninstallString', Cmd) then
+    Exit;
+  Cmd := RemoveQuotes(Cmd);
+  if (Cmd <> '') and FileExists(Cmd) then
+    Exec(Cmd, '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART', '', SW_HIDE, ewWaitUntilTerminated, Code);
+end;
+
 procedure RemoveOldName();
 var
   Code: Integer;
@@ -150,6 +167,7 @@ function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   RemoveOldName();
   StopApp();
+  UninstallPrevious();
   Result := '';
 end;
 

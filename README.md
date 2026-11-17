@@ -6,9 +6,11 @@ AK400SE is a small tray application for Windows that shows CPU temperature and C
 ## What it does
 - Display modes: temperature, CPU usage, or both alternating at a chosen interval (3, 5, 7 or 10 seconds). The bar on the display always follows CPU usage.
 - Temperature unit: Celsius or Fahrenheit.
+- Over-temperature alarm (optional): the display flashes when the CPU reaches a chosen temperature (default 90 °C, adjustable from 75 to 100 °C).
+- Live readout in the window: current CPU temperature and usage in a 7-segment style that echoes the cooler's display. The window follows the Windows light or dark setting (Windows 11 and later).
 - Runs from a tray icon. Closing the settings window hides it to the tray; the tray menu opens the window or quits the program.
 - Optional start with Windows. Administrator rights are granted once, by the installer, through a scheduled task, so no UAC prompt appears at start-up.
-- Ships as a single installer with the .NET runtime included. Nothing else has to be installed first.
+- Ships as a single installer with the .NET runtime included. Nothing else has to be installed first. Installing a new version first uninstalls the previous one.
 - Settings are stored in one small file, `%LOCALAPPDATA%\AK400SE\settings.json`.
 
 ## Supported hardware and requirements
@@ -27,7 +29,7 @@ AK400SE is a small tray application for Windows that shows CPU temperature and C
 - **No warranty.** AK400SE is free software provided "as is", without warranty of any kind, and is used at the user's own risk. The terms are those of the [MIT License](LICENSE).
 - **Unofficial.** The project is not affiliated with, endorsed by or supported by DeepCool. Product and company names belong to their respective owners. The display modes follow publicly available information about the official software and may differ from it in details.
 - **Limited testing.** Development and testing were done on a single AK400 DIGITAL SE unit. Other units, firmware or PC configurations may behave differently. Some units are known not to work with this protocol (see the notes in [docs/development.md](docs/development.md)).
-- **Third-party components.** PawnIO is a separate driver by its own author, under its own license. LibreHardwareMonitorLib (MPL-2.0), HidSharp (Apache-2.0), the .NET runtime and Windows Forms (MIT) are bundled.
+- **Third-party components.** PawnIO is a separate driver by its own author, under its own license. LibreHardwareMonitorLib (MPL-2.0), HidSharp (Apache-2.0), the DSEG7 font by keshikan (SIL Open Font License 1.1, used for the readout), the .NET runtime and Windows Forms (MIT) are bundled.
 - **Unsigned installer.** The installer is not code-signed, so Windows SmartScreen may show a warning. A SHA-256 checksum is published with each release.
 
 ## More

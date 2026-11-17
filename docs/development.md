@@ -6,7 +6,7 @@ AK400SE is a small Windows tray app that drives the display of the **DeepCool AK
 It shows CPU temperature and/or CPU usage. Earlier versions were a console program with command-line options; those are gone: the app
 is configured in its window (settings in `%LOCALAPPDATA%\AK400SE\settings.json`).
 
-Scope is deliberately small: AK400 DIGITAL SE only, CPU only, no alarm, no other cooler models.
+Scope is deliberately small: AK400 DIGITAL SE only, CPU only, no other cooler models, no update check (the app never uses the network).
 
 ## How it works
 - `src/Program.cs`: entry point. Started normally, it asks Task Scheduler to start the installed task `AK400SE`, which runs the same
@@ -19,6 +19,7 @@ Scope is deliberately small: AK400 DIGITAL SE only, CPU only, no alarm, no other
 - UI-free logic with tests: `DeviceCheck.cs` (device verification), `WriteGuard.cs` (minimum write interval), `ModeScheduler.cs`,
   `Settings.cs`, `Status.cs`, `TaskXml.cs`, plus `Packet.cs` and `HidDescriptor.cs`.
 - Hardware: `Display.cs` (HidSharp) and `Cpu.cs` (LibreHardwareMonitorLib, CPU group only).
+- Window extras: `Ui/DigitalFont.cs` loads the embedded DSEG7 font in memory (created and disposed with the window), `Ui/DarkMode.cs` follows the Windows light/dark setting (`Application.SetColorMode`, Windows 11+). The window polls `Engine.Live` once a second only while it is open; nothing wakes up when it is closed.
 
 ### Safety rules (enforced in code, covered by `tests/LogicTests`)
 - A write happens only to a HID interface with VID `0x3633`, PID `0x0001`, product string exactly `A400-DIGITAL`, and an Output report ID
@@ -42,7 +43,8 @@ WinForms cannot be trimmed (the SDK refuses), so the .NET runtime and WinForms s
 - Installs to `Program Files` only (no directory page): the start-up task runs the app with administrator rights, so the exe must not be replaceable by a normal user. The app also refuses to create the task for an exe outside Program Files.
 - Creates the task once (`AK400SE.exe --task on|off`), because the installer is elevated. Afterwards no UAC prompt is needed to start the app.
 - **PawnIO**: the installer contains the unmodified official `PawnIO_setup.exe` (release pinned in the `.iss`; `scripts/get-pawnio.ps1` downloads it from `github.com/namazso/PawnIO.Setup` and aborts if the SHA-256 differs). A dedicated page asks for consent (unchecked by default, skipped if PawnIO is already installed). Setup checks the SHA-256 again and runs it with `-install -silent` only. The "unrestricted" edition (test-signed, needs boot configuration changes) is never used. Uninstalling leaves PawnIO alone.
-- Versions up to 0.1.x were called "DeepCool Lite". The installer keeps the same AppId (Windows sees an upgrade), installs to the new folder, and removes the old folder, Start menu shortcut, task (`DeepCoolLite`) and process. Settings are not migrated: the first run after the rename starts from the defaults.
+- Versions up to 0.1.x were called "DeepCool Lite". The installer keeps the same AppId (Windows sees an upgrade), installs to the new folder, and removes the old folder, Start menu shortcut, task (`DeepCoolLite`) and process. Settings are carried over once: if there is no `%LOCALAPPDATA%\AK400SE\settings.json` yet, the old `%LOCALAPPDATA%\DeepCoolLite\settings.json` is copied.
+- Before installing, Setup silently runs the uninstaller of any previous version (found through the fixed AppId), so no old files, shortcuts or tasks remain; settings and PawnIO are not touched.
 - Moving to a newer PawnIO: update `PawnIoVersion` and `PawnIoSha256` in the `.iss` (one place), read the release page and its redistribution terms again.
 
 ## Start with Windows (how there is no UAC prompt)
@@ -72,7 +74,9 @@ nothing is written (earlier versions guessed from the product name and retried; 
   ([Nortank12/deepcool-digital-linux](https://github.com/Nortank12/deepcool-digital-linux)), a unit with report IDs 2-5 and 16 in its
   HID descriptor behaves differently, and that is not solved upstream either.
 - The installer and exe are unsigned (SmartScreen warns).
-- AK400 DIGITAL SE only; CPU only. No alarm, GPU or other models.
+- AK400 DIGITAL SE only; CPU only. No GPU or other models.
+- The alarm sets the flash flag (payload byte 5), as the open-source Linux port of the official software does at a fixed 90 °C / 194 °F; here the temperature is adjustable (75-100 °C, default 90). It follows that source and tests, and has not been confirmed on every unit.
+- Dark mode uses WinForms' color-mode support: Windows 11 or later only, and the controls may look slightly less polished than in light mode.
 - Fahrenheit sends mode byte `35` with the value converted on the PC, as the open-source Linux port of the official software does. It has been checked against that source and by tests, not yet confirmed on every unit.
 - There is no log file: the window's status lines are the diagnostics.
 - The auto-switch interval offered in the window is 3/5/7/10 s (default 5 s). The Linux port of the official software uses a fixed 5 s;
@@ -113,12 +117,13 @@ rule, `github-actions[bot]` must be allowed to push to it. `.github/dependabot.y
 | 0 | 170 init/animation, 19 temperature (C), 35 temperature (F), 76 usage |
 | 1 | status bar 1-10 (usage: <15% -> 1, else nearest 10%) |
 | 2,3,4 | hundreds, tens, ones digit |
-| 5 | alarm (unused here) |
+| 5 | alarm: 1 makes the display flash (set while the CPU temperature is at or above the alarm temperature; Celsius is compared, whatever unit is shown) |
 
 Regular (non-SE) AK400 DIGITAL: same bytes behind report ID 0x10. The status bar always follows CPU usage.
 
 ## License
 MIT, see [LICENSE](../LICENSE). Third parties: [LibreHardwareMonitorLib](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) (MPL-2.0)
 and [HidSharp](https://www.nuget.org/packages/HidSharp) (Apache-2.0) are shipped with the app, together with the .NET runtime and Windows Forms (MIT).
+The readout uses [DSEG7 Classic](https://github.com/keshikan/DSEG) by keshikan (SIL Open Font License 1.1), embedded in the exe; its license text ships in `ThirdParty/DSEG-LICENSE.txt` next to the exe, as the license requires (`scripts/check-exe.ps1` checks that it is there).
 PawnIO is a separate driver with its own license. Its author's wiki ([Using PawnIO Modules](https://github.com/namazso/PawnIO.Modules/wiki/Using-PawnIO-Modules), "Licensing considerations") says the official binary editions are proprietary, "however redistribution of installer is allowed", and recommends pointing users to [pawnio.eu](https://pawnio.eu) instead of shipping a copy. The installer bundles the unmodified official installer and runs it only after consent; if you would rather not bundle it, replace the bundled file with a download of the same pinned release (keeping the SHA-256 check) or a link to pawnio.eu.
 `tests/ref_se.py` is derived from GPL-3.0 code (deepcool-digital-linux), stays GPL-3.0, and is test-only: it is not part of the released app.

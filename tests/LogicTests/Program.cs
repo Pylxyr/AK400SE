@@ -85,7 +85,7 @@ Check(new Settings((Mode)42, 1234).Normalized() == new Settings(Mode.Auto, 10), 
 foreach (var m in new[] { Mode.Temp, Mode.Usage, Mode.Auto })
     foreach (int sec in Settings.SwitchChoices)
         Check(SettingsFile.Parse(SettingsFile.ToJson(new Settings(m, sec))) == new Settings(m, sec), $"round trip {m}/{sec}");
-Check(SettingsFile.ToJson(Settings.Default).Length < 100, "the file is small");
+Check(SettingsFile.ToJson(Settings.Default).Length < 200, "the file is small");
 
 string dir = Path.Combine(Path.GetTempPath(), "dcl-tests-" + Guid.NewGuid().ToString("N"));
 try
@@ -315,7 +315,7 @@ Check(!SettingsFile.Parse("{}").Fahrenheit && !SettingsFile.Parse("{\"fahrenheit
 Check(Settings.Default.Fahrenheit == false && new Settings(Mode.Temp, 5, true).Normalized().Fahrenheit, "default is Celsius; Normalized keeps the unit");
 foreach (bool unit in new[] { false, true })
     Check(SettingsFile.Parse(SettingsFile.ToJson(new Settings(Mode.Temp, 7, unit))) == new Settings(Mode.Temp, 7, unit), $"round trip with fahrenheit={unit}");
-Check(SettingsFile.ToJson(new Settings(Mode.Auto, 5, true)).Contains("\"fahrenheit\": true") && SettingsFile.ToJson(Settings.Default).Length < 100, "the file stays small and names the unit");
+Check(SettingsFile.ToJson(new Settings(Mode.Auto, 5, true)).Contains("\"fahrenheit\": true") && SettingsFile.ToJson(Settings.Default).Length < 200, "the file stays small and names the unit");
 {   // the engine converts and passes the unit to the cooler
     var link = new FakeLink();
     var f = new FakeFinder(new ConnectOutcome(CoolerState.Connected, "A400-DIGITAL", link));
@@ -333,19 +333,86 @@ Check(SettingsFile.ToJson(new Settings(Mode.Auto, 5, true)).Contains("\"fahrenhe
     Check(!link.Shows[^1].Usage && link.Shows[^1].Temp == 142 && link.Shows[^1].F, "'both' shows the converted temperature too");
 }
 
+// ---------- Alarm ----------
+Check(Packet.Frame(false, 91, 30, false, true)[5] == 1 && Packet.Frame(true, 91, 30, false, true)[5] == 1, "alarm frames carry the flag in payload byte 5, in temperature and usage frames");
+Check(Packet.Frame(false, 91, 30)[5] == 0 && Packet.Frame(false, 91, 30, true)[5] == 0 && Packet.Frame(false, 91, 30, false, false)[5] == 0, "no alarm unless asked for");
+Check(Packet.Frame(false, 91, 30, false, true).Take(5).SequenceEqual(Packet.Frame(false, 91, 30, false, false).Take(5)), "the alarm flag changes nothing else in the frame");
+Check(!Settings.Default.Alarm && Settings.Default.AlarmC == 90, "alarm defaults: off, 90 C");
+Check(Settings.MinAlarmC == 75 && Settings.MaxAlarmC == 100, "alarm range is 75-100 C");
+Check(SettingsFile.Parse("{\"alarm\":true,\"alarmC\":85}") == new Settings(Mode.Auto, 5, false, true, 85), "alarm settings parsed");
+Check(SettingsFile.Parse("{\"alarmC\":10}").AlarmC == 75 && SettingsFile.Parse("{\"alarmC\":74}").AlarmC == 75 && SettingsFile.Parse("{\"alarmC\":101}").AlarmC == 100, "alarm temperature is clamped to 75-100");
+Check(SettingsFile.Parse("{\"alarmC\":99999999999}").AlarmC == 100 && SettingsFile.Parse("{\"alarmC\":-5}").AlarmC == 75 && SettingsFile.Parse("{\"alarmC\":88.6}").AlarmC == 89, "huge, negative and fractional alarm temperatures");
+Check(SettingsFile.Parse("{\"alarmC\":\"85\"}").AlarmC == 90 && SettingsFile.Parse("{\"alarmC\":null}").AlarmC == 90 && SettingsFile.Parse("{}").AlarmC == 90, "missing or non-numeric alarm temperature: default 90");
+Check(!SettingsFile.Parse("{\"alarm\":\"true\"}").Alarm && !SettingsFile.Parse("{\"alarm\":1}").Alarm && !SettingsFile.Parse("{}").Alarm, "only a real true enables the alarm (also for old files)");
+Check(new Settings(Mode.Auto, 5, false, true, 10).Normalized().AlarmC == 75 && new Settings(Mode.Auto, 5, false, true, 500).Normalized().AlarmC == 100, "Normalized clamps the alarm temperature");
+foreach (bool al in new[] { false, true })
+    foreach (int ac in new[] { 75, 90, 100 })
+        Check(SettingsFile.Parse(SettingsFile.ToJson(new Settings(Mode.Usage, 3, true, al, ac))) == new Settings(Mode.Usage, 3, true, al, ac), $"round trip alarm={al}/{ac}");
+
+// ---------- settings carry-over from the old name ----------
+string mdir = Path.Combine(Path.GetTempPath(), "dcl-mig-" + Guid.NewGuid().ToString("N"));
+try
+{
+    string np = Path.Combine(mdir, "new", "settings.json"), lp = Path.Combine(mdir, "old", "settings.json");
+    Check(SettingsFile.LoadMigrating(np, lp) == Settings.Default && !File.Exists(np), "neither file exists: defaults, nothing created");
+    Directory.CreateDirectory(Path.GetDirectoryName(lp)!);
+    File.WriteAllText(lp, "{\"mode\":\"usage\",\"switchSeconds\":7}");
+    Check(SettingsFile.LoadMigrating(np, lp) == new Settings(Mode.Usage, 7), "old file is taken over");
+    Check(File.Exists(np) && SettingsFile.Load(np) == new Settings(Mode.Usage, 7), "and copied to the new place, once");
+    File.WriteAllText(lp, "{\"mode\":\"temp\"}");
+    Check(SettingsFile.LoadMigrating(np, lp) == new Settings(Mode.Usage, 7), "once the new file exists the old one is ignored");
+    File.Delete(np);
+    File.WriteAllText(lp, "{ broken");
+    Check(SettingsFile.LoadMigrating(np, lp) == Settings.Default, "a corrupt old file gives defaults");
+    Check(SettingsFile.LegacyPath().EndsWith(Path.Combine("DeepCoolLite", "settings.json")) && !SettingsFile.DefaultPath().Contains("DeepCoolLite"), "the old and new locations differ");
+}
+finally { try { Directory.Delete(mdir, true); } catch (Exception) { } }
+{   // engine: alarm and live readings
+    var link = new FakeLink();
+    var f = new FakeFinder(new ConnectOutcome(CoolerState.Connected, "A400-DIGITAL", link));
+    var sensors = new FakeSensors { Temp = 80, Load = 40 };
+    using var e = Make(f, sensors, set: new Settings(Mode.Temp, 5, false, true, 85));
+    Check(e.Live == Readings.None, "no readings before anything is connected");
+    At(e, 0);
+    Check(e.Live == Readings.None, "none while connecting either");
+    At(e, 1000);
+    Check(e.Live == new Readings(80, 40, true, true) && !link.Shows[^1].Alarm, "live readings follow the sensors; 80 C is below an 85 C alarm");
+    sensors.Temp = 85; At(e, 2000);
+    Check(link.Shows[^1].Alarm, "alarm at the threshold itself");
+    sensors.Temp = 97; At(e, 3000);
+    Check(link.Shows[^1].Alarm && link.Shows[^1].Temp == 97, "and above it");
+    e.Settings = new Settings(Mode.Usage, 5, false, true, 85); At(e, 4000);
+    Check(link.Shows[^1].Usage && link.Shows[^1].Alarm, "the alarm also flashes while usage is shown");
+    e.Settings = new Settings(Mode.Temp, 5, true, true, 85); At(e, 5000);
+    Check(link.Shows[^1].Alarm && link.Shows[^1].Temp == 207, "Fahrenheit display: the alarm still compares Celsius (97 C = 207 F)");
+    e.Settings = new Settings(Mode.Temp, 5, false, false, 85); At(e, 6000);
+    Check(!link.Shows[^1].Alarm, "alarm off: never");
+    sensors.Temp = 70; e.Settings = new Settings(Mode.Temp, 5, false, true, 85); At(e, 7000);
+    Check(!link.Shows[^1].Alarm, "cooled down: alarm stops");
+    sensors.TempOk = false; e.Settings = new Settings(Mode.Auto, 5, false, true, 75); At(e, 8000);
+    Check(!link.Shows[^1].Alarm && !e.Live.TempOk, "no temperature, no alarm");
+}
+{   // readings are cleared when the cooler is lost
+    var link = new FakeLink { FailOnShow = true };
+    var f = new FakeFinder(new ConnectOutcome(CoolerState.Connected, "A400-DIGITAL", link));
+    using var e = Make(f, new FakeSensors { Temp = 60, Load = 20 });
+    At(e, 0); At(e, 1000);
+    Check(e.Live == Readings.None, "readings are cleared when the connection is lost");
+}
+
 Console.WriteLine(failed == 0 ? $"LOGIC TESTS: PASS ({checks} checks)" : $"LOGIC TESTS: FAIL ({failed} of {checks})");
 return failed == 0 ? 0 : 1;
 
 // ---------- fakes ----------
 sealed class FakeLink : ICoolerLink
 {
-    public record Frame(bool Usage, int Temp, int Load, bool F);
+    public record Frame(bool Usage, int Temp, int Load, bool F, bool Alarm = false);
     public List<Frame> Shows = new();
     public bool FailOnShow, Disposed;
-    public void Show(bool showUsage, int temp, int usagePct, bool fahrenheit)
+    public void Show(bool showUsage, int temp, int usagePct, bool fahrenheit, bool alarm)
     {
         if (FailOnShow) throw new IOException("unplugged");
-        Shows.Add(new Frame(showUsage, temp, usagePct, fahrenheit));
+        Shows.Add(new Frame(showUsage, temp, usagePct, fahrenheit, alarm));
     }
     public void Dispose() => Disposed = true;
 }

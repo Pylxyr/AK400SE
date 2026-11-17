@@ -3,15 +3,17 @@ using System.Text.Json;
 namespace AK400SE;
 
 /// <summary>The user's choices. Everything is clamped to known values: a hand-edited file cannot produce anything else.</summary>
-public sealed record Settings(Mode Mode, int SwitchSeconds, bool Fahrenheit = false)
+public sealed record Settings(Mode Mode, int SwitchSeconds, bool Fahrenheit = false, bool Alarm = false, int AlarmC = Settings.DefaultAlarmC)
 {
     /// <summary>The auto mode of the official software alternates every 5 s (7 s in an early release); offer a few nearby values.</summary>
     public static readonly IReadOnlyList<int> SwitchChoices = new[] { 3, 5, 7, 10 };
     public const int DefaultSwitchSeconds = 5;
+    /// <summary>Alarm temperature in Celsius (the official software flashes the display at 90 C / 194 F). Allowed range 75-100 C.</summary>
+    public const int DefaultAlarmC = 90, MinAlarmC = 75, MaxAlarmC = 100;
     public static readonly Settings Default = new(Mode.Auto, DefaultSwitchSeconds);
 
     public Settings Normalized() =>
-        new(Enum.IsDefined(Mode) ? Mode : Default.Mode, NearestChoice(SwitchSeconds), Fahrenheit);
+        new(Enum.IsDefined(Mode) ? Mode : Default.Mode, NearestChoice(SwitchSeconds), Fahrenheit, Alarm, Math.Clamp(AlarmC, MinAlarmC, MaxAlarmC));
 
     public static int NearestChoice(int seconds)
     {
@@ -26,7 +28,7 @@ public sealed record Settings(Mode Mode, int SwitchSeconds, bool Fahrenheit = fa
     }
 }
 
-/// <summary>One small JSON file: {"mode": "temp|usage|auto", "switchSeconds": n, "fahrenheit": true|false}. Reading never throws.</summary>
+/// <summary>One small JSON file: {"mode": "temp|usage|auto", "switchSeconds": n, "fahrenheit": true|false, "alarm": true|false, "alarmC": n}. Reading never throws.</summary>
 public static class SettingsFile
 {
     public const int MaxBytes = 4096;
@@ -34,13 +36,28 @@ public static class SettingsFile
     public static string DefaultPath() =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AK400SE", "settings.json");
 
+    /// <summary>Where versions up to 0.1.x (named "DeepCool Lite") kept their settings.</summary>
+    public static string LegacyPath() =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DeepCoolLite", "settings.json");
+
+    /// <summary>Like <see cref="Load"/>, but when there is no settings file yet, takes over the one from the old name (once: it is copied to the new place).</summary>
+    public static Settings LoadMigrating(string path, string legacyPath)
+    {
+        if (File.Exists(path)) return Load(path);
+        if (!File.Exists(legacyPath)) return Settings.Default;
+        var s = Load(legacyPath);
+        TrySave(path, s);
+        return s;
+    }
+
     static string ModeName(Mode m) => m switch { Mode.Temp => "temp", Mode.Usage => "usage", _ => "auto" };
 
     public static string ToJson(Settings s)
     {
         var n = s.Normalized();
         return "{\n  \"mode\": \"" + ModeName(n.Mode) + "\",\n  \"switchSeconds\": " + n.SwitchSeconds +
-               ",\n  \"fahrenheit\": " + (n.Fahrenheit ? "true" : "false") + "\n}\n";
+               ",\n  \"fahrenheit\": " + (n.Fahrenheit ? "true" : "false") +
+               ",\n  \"alarm\": " + (n.Alarm ? "true" : "false") + ",\n  \"alarmC\": " + n.AlarmC + "\n}\n";
     }
 
     public static Settings Parse(string? json)
@@ -65,7 +82,11 @@ public static class SettingsFile
             if (doc.RootElement.TryGetProperty("switchSeconds", out var n) && n.ValueKind == JsonValueKind.Number)
                 seconds = n.TryGetDouble(out double d) ? (int)Math.Clamp(Math.Round(d), 0, 1000) : seconds;
             bool fahrenheit = doc.RootElement.TryGetProperty("fahrenheit", out var f) && f.ValueKind == JsonValueKind.True;
-            return new Settings(mode, seconds, fahrenheit).Normalized();
+            bool alarm = doc.RootElement.TryGetProperty("alarm", out var a) && a.ValueKind == JsonValueKind.True;
+            int alarmC = Settings.DefaultAlarmC;
+            if (doc.RootElement.TryGetProperty("alarmC", out var ac) && ac.ValueKind == JsonValueKind.Number && ac.TryGetDouble(out double acd))
+                alarmC = (int)Math.Clamp(Math.Round(acd), 0, 1000);
+            return new Settings(mode, seconds, fahrenheit, alarm, alarmC).Normalized();
         }
         catch (JsonException) { return Settings.Default; }
     }
